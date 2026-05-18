@@ -48,7 +48,8 @@
         #sensorHud .hud-row:last-child { border-bottom: none; }
         #sensorHud .hud-value { color: #fde047; font-weight: bold; }
         #interactionHint { position: absolute; left: 20px; bottom: 86px; max-width: min(420px, calc(100% - 40px)); background: rgba(15,23,42,0.82); color: #e2e8f0; padding: 8px 10px; border-radius: 8px; border: 1px solid rgba(148,163,184,0.35); font-size: 12px; line-height: 1.35; z-index: 100; pointer-events: none; }
-        #simContainer a-scene, #simContainer canvas { touch-action: none; }
+        #simContainer a-scene { width: 100%; height: 100%; display: block; touch-action: none; }
+        #simContainer canvas { width: 100% !important; height: 100% !important; display: block; touch-action: none; }
         #sideMenuOverlay { position: fixed; inset: 0; background: rgba(2,6,23,0.6); z-index: 140; opacity: 0; pointer-events: none; transition: opacity 0.2s ease; }
         #sideMenu { position: fixed; top: 0; left: 0; bottom: 0; width: min(320px, 82vw); background: #0f172a; border-right: 1px solid rgba(148,163,184,0.35); transform: translateX(-104%); transition: transform 0.22s ease; z-index: 150; padding: 12px; box-shadow: 12px 0 28px rgba(0,0,0,0.35); }
         #sideMenu h3 { margin: 8px 0 10px; color: #cbd5e1; font-size: 13px; letter-spacing: 0.04em; text-transform: uppercase; }
@@ -208,7 +209,7 @@
             <a-entity id="free-camera-rig" position="0 0.5 0">
                 <a-entity id="free-camera-yaw" rotation="0 135 0">
                     <a-entity id="free-camera-pitch" rotation="-37 0 0">
-                        <a-entity id="free-camera" position="0 0 5.2" camera="active: false; fov: 45; near: 0.1; far: 100" look-controls="enabled: false" wasd-controls="enabled: false"></a-entity>
+                        <a-entity id="free-camera" position="0 0 5.2"></a-entity>
                     </a-entity>
                 </a-entity>
             </a-entity>
@@ -572,6 +573,7 @@
     const ORTHO_CAMERA_MAX_ZOOM = 5;
     const ORTHO_FOLLOW_ZOOM_THRESHOLD = 1.06;
     const orthoCameraState = { ...ORTHO_CAMERA_DEFAULT };
+    let orthoInitialSnapshot = null;
     const BLOCKS_STORAGE_PREFIX = 'robomaze.blocks.';
     const placementRaycaster = new THREE.Raycaster();
     const placementMouse = new THREE.Vector2();
@@ -597,6 +599,10 @@
         lastCenterX: 0,
         lastCenterY: 0
     };
+    const freeWorldPos = new THREE.Vector3();
+    const freeWorldQuat = new THREE.Quaternion();
+    const freeWorldEuler = new THREE.Euler();
+    let sceneViewportSyncQueued = false;
 
     // --- FUNCIONALIDAD DE VISTAS ---
     function syncViewButtons() {
@@ -617,29 +623,56 @@
         });
     }
 
+    function syncSceneViewportSize() {
+        const scene = document.querySelector('a-scene');
+        if(!scene) return;
+        if(typeof scene.resize === 'function') scene.resize();
+    }
+
+    function requestSceneViewportSync() {
+        if(sceneViewportSyncQueued) return;
+        sceneViewportSyncQueued = true;
+        requestAnimationFrame(() => {
+            sceneViewportSyncQueued = false;
+            syncSceneViewportSize();
+            if(currentView === 'ortho') updateOrthoCamera();
+            else syncMainCameraFromFreeRig();
+        });
+    }
+
     function setView(view) {
+        const previousView = currentView;
         currentView = view;
         syncViewButtons();
         
         const mainCam = document.getElementById('main-cam');
-        const freeCam = document.getElementById('free-camera');
+        syncSceneViewportSize();
         
         if (view === 'ortho') {
             // Activar cámara ortográfica
-            freeCam.setAttribute('camera', 'active', false);
+            // Enfoque robusto: mantener SIEMPRE una única cámara activa (main-cam)
+            // y usar free-camera solo como "sonda" de pose para vista libre.
             mainCam.setAttribute('camera', 'active', true);
-            updateOrthoCamera();
+            // Regla pedida: al volver desde libre, restaurar SIEMPRE
+            // la proyección/encuadre inicial de vista aérea.
+            if(previousView === 'free') restoreInitialOrthoProjection();
+            else updateOrthoCamera();
             document.getElementById('status').textContent = "Estado: Vista Aérea - arrastrá para pan, ruedita para zoom";
         } else {
             // Activar cámara libre
-            mainCam.setAttribute('camera', 'active', false);
+            mainCam.setAttribute('camera', 'active', true);
             updateFreeCameraOrbit(true);
-            freeCam.setAttribute('camera', 'active', true);
+            syncMainCameraFromFreeRig();
             // A-Frame cambia la cámara activa de forma interna; refrescamos un frame
             // después para evitar que use la pose anterior.
-            requestAnimationFrame(() => updateFreeCameraOrbit(true));
+            requestAnimationFrame(() => {
+                updateFreeCameraOrbit(true);
+                syncMainCameraFromFreeRig();
+                requestSceneViewportSync();
+            });
             document.getElementById('status').textContent = "Estado: Vista Libre - Izq orbita, der panea, ruedita zoom";
         }
+        requestSceneViewportSync();
     }
 
     function setMode(mode) {
@@ -672,6 +705,7 @@
         currentMobilePanel = panel === 'blocks' ? 'blocks' : 'sim';
         document.body.setAttribute('data-mobile-panel', currentMobilePanel);
         syncPanelButtons();
+        requestSceneViewportSync();
         if(window.workspace) requestAnimationFrame(() => Blockly.svgResize(window.workspace));
         closeSideMenu();
     }
@@ -688,6 +722,7 @@
         stopSim();
         resetOrthoCamera();
         setView('ortho');
+        requestSceneViewportSync();
 
         const container = document.getElementById('maze-container');
         container.innerHTML = '';
@@ -774,7 +809,17 @@
         robot.setAttribute('rotation', `0 ${rotationY} 0`);
         updateRotationGizmo();
         updateSensorHud();
-        if(currentView === 'ortho') updateOrthoCamera();
+        if(currentView === 'ortho') {
+            // Seguimiento en ejecución: con zoom recortado, centramos SIEMPRE el robot.
+            // Con zoom amplio (tablero completo) no forzamos seguimiento.
+            if(running && orthoCameraState.zoom > ORTHO_FOLLOW_ZOOM_THRESHOLD) {
+                orthoFollowRobot = false;
+                const pos = getRobotWorldPosition();
+                orthoCameraState.x = pos.x;
+                orthoCameraState.z = pos.z;
+            }
+            updateOrthoCamera();
+        }
         updateFreeCameraOrbit();
     }
 
@@ -880,6 +925,35 @@
         return base.add(freeCameraOrbit.panOffset);
     }
 
+    function syncMainCameraFromFreeRig() {
+        if(currentView !== 'free') return;
+        const mainCam = document.getElementById('main-cam');
+        const freeCam = document.getElementById('free-camera');
+        if(!mainCam || !freeCam || !mainCam.object3D || !freeCam.object3D) return;
+
+        freeCam.object3D.updateMatrixWorld(true);
+        freeCam.object3D.getWorldPosition(freeWorldPos);
+        freeCam.object3D.getWorldQuaternion(freeWorldQuat);
+
+        mainCam.object3D.position.copy(freeWorldPos);
+        mainCam.object3D.quaternion.copy(freeWorldQuat);
+        mainCam.object3D.updateMatrixWorld(true);
+
+        freeWorldEuler.setFromQuaternion(freeWorldQuat, 'YXZ');
+        mainCam.setAttribute('position', `${freeWorldPos.x} ${freeWorldPos.y} ${freeWorldPos.z}`);
+        mainCam.setAttribute('rotation', `${THREE.MathUtils.radToDeg(freeWorldEuler.x)} ${THREE.MathUtils.radToDeg(freeWorldEuler.y)} ${THREE.MathUtils.radToDeg(freeWorldEuler.z)}`);
+        mainCam.setAttribute('camera', 'active: true; fov: 45; near: 0.1; far: 100; zoom: 1');
+
+        const camObj = mainCam.getObject3D && mainCam.getObject3D('camera');
+        if(camObj) {
+            camObj.fov = 45;
+            camObj.near = 0.1;
+            camObj.far = 100;
+            camObj.zoom = 1;
+            camObj.updateProjectionMatrix();
+        }
+    }
+
     function updateFreeCameraOrbit(force = false) {
         if(currentView !== 'free' && !force) return;
         const rig = document.getElementById('free-camera-rig');
@@ -893,6 +967,7 @@
         pitch.setAttribute('rotation', `${-THREE.MathUtils.radToDeg(freeCameraOrbit.elevation)} 0 0`);
         camera.setAttribute('position', `0 0 ${freeCameraOrbit.distance}`);
         freeCameraOrbit.initialized = true;
+        syncMainCameraFromFreeRig();
     }
 
     function initFreeCameraOrbit() {
@@ -1036,6 +1111,41 @@
         return visibleHeight / height;
     }
 
+    function captureInitialOrthoProjection(force = false) {
+        if(orthoInitialSnapshot && !force) return;
+        orthoInitialSnapshot = {
+            x: ORTHO_CAMERA_DEFAULT.x,
+            z: ORTHO_CAMERA_DEFAULT.z,
+            zoom: ORTHO_CAMERA_DEFAULT.zoom
+        };
+    }
+
+    function restoreInitialOrthoProjection() {
+        captureInitialOrthoProjection();
+        if(!orthoInitialSnapshot) {
+            resetOrthoCamera();
+            return;
+        }
+        orthoCameraState.x = orthoInitialSnapshot.x;
+        orthoCameraState.z = orthoInitialSnapshot.z;
+        orthoCameraState.zoom = orthoInitialSnapshot.zoom;
+        orthoFollowRobot = false;
+        orthoFollowOffsetX = 0;
+        orthoFollowOffsetZ = 0;
+        updateOrthoCamera();
+
+        // Reaplicar unos frames para ganarle a cualquier actualización interna
+        // tardía del sistema de cámara al alternar entre cámaras activas.
+        requestAnimationFrame(() => {
+            if(currentView !== 'ortho') return;
+            updateOrthoCamera();
+            requestAnimationFrame(() => {
+                if(currentView !== 'ortho') return;
+                updateOrthoCamera();
+            });
+        });
+    }
+
     function ensureRobotVisibleInOrtho() {
         const pos = getRobotWorldPosition();
         const aspect = getAerialViewportAspect();
@@ -1062,13 +1172,35 @@
             // reencuadrar aunque no esté activo el follow explícito.
             ensureRobotVisibleInOrtho();
         }
-        mainCam.setAttribute('camera', `active: ${currentView === 'ortho'}; fov: ${AERIAL_CAMERA_FOV}; near: 0.1; far: 100`);
-        mainCam.setAttribute('position', `${orthoCameraState.x} ${getAerialCameraHeight()} ${orthoCameraState.z}`);
+        const camHeight = getAerialCameraHeight();
+        const camFov = AERIAL_CAMERA_FOV;
+        const camNear = 0.1;
+        const camFar = 100;
+        const isActive = true;
+
+        mainCam.setAttribute('camera', `active: ${isActive}; fov: ${camFov}; near: ${camNear}; far: ${camFar}; zoom: 1`);
+        mainCam.setAttribute('position', `${orthoCameraState.x} ${camHeight} ${orthoCameraState.z}`);
         mainCam.setAttribute('rotation', '-90 0 0');
         mainCam.setAttribute('scale', '1 1 1');
+
+        // Refuerzo directo sobre Three.js para que no quede "pose vieja" al volver de vista libre.
+        if(mainCam.object3D) {
+            mainCam.object3D.position.set(orthoCameraState.x, camHeight, orthoCameraState.z);
+            mainCam.object3D.rotation.set(-Math.PI / 2, 0, 0);
+            mainCam.object3D.updateMatrixWorld(true);
+        }
+        const camObj = mainCam.getObject3D && mainCam.getObject3D('camera');
+        if(camObj) {
+            camObj.fov = camFov;
+            camObj.near = camNear;
+            camObj.far = camFar;
+            camObj.zoom = 1;
+            camObj.updateProjectionMatrix();
+        }
     }
 
     function resetOrthoCamera() {
+        captureInitialOrthoProjection();
         orthoCameraState.x = ORTHO_CAMERA_DEFAULT.x;
         orthoCameraState.z = ORTHO_CAMERA_DEFAULT.z;
         orthoCameraState.zoom = ORTHO_CAMERA_DEFAULT.zoom;
@@ -1215,6 +1347,7 @@
         updateOrthoCamera();
 
         window.addEventListener('resize', () => {
+            requestSceneViewportSync();
             if(currentView === 'ortho') updateOrthoCamera();
         });
     }
@@ -1922,7 +2055,10 @@
         window.workspace = workspace;
         if(!loadBlocks('basic', { silent: true })) loadDefaultProgram('basic');
         window.addEventListener('resize', () => Blockly.svgResize(workspace));
-        requestAnimationFrame(() => Blockly.svgResize(workspace));
+        requestAnimationFrame(() => {
+            Blockly.svgResize(workspace);
+            requestSceneViewportSync();
+        });
     }
 
     function initLayoutShell() {
@@ -1934,18 +2070,30 @@
         });
         window.addEventListener('resize', () => {
             if(window.innerWidth > 900) closeSideMenu();
+            requestSceneViewportSync();
             if(window.workspace) requestAnimationFrame(() => Blockly.svgResize(window.workspace));
         });
     }
 
     // Inicializar cuando el documento esté listo
     document.addEventListener('DOMContentLoaded', function() {
+        const scene = document.querySelector('a-scene');
+        if(scene) {
+            if(scene.hasLoaded) requestSceneViewportSync();
+            else scene.addEventListener('loaded', () => requestSceneViewportSync(), { once: true });
+        }
+
         initLayoutShell();
         initBlockly();
         initRobotPlacement();
         initOrthoCameraControls();
         initFreeCameraPan();
         generateMaze();
+        requestAnimationFrame(() => {
+            captureInitialOrthoProjection(true);
+            requestSceneViewportSync();
+            if(currentView === 'ortho') updateOrthoCamera();
+        });
     });
 </script>
 
