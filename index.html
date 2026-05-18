@@ -583,6 +583,9 @@
     const touchGesture = {
         orthoActive: false,
         freeActive: false,
+        freeOrbitActive: false,
+        lastOrbitX: 0,
+        lastOrbitY: 0,
         lastDistance: 0,
         lastCenterX: 0,
         lastCenterY: 0
@@ -924,10 +927,18 @@
         }, { passive: false, capture: true });
 
         scene.addEventListener('touchstart', event => {
+            if(currentView !== 'free') return;
+            if(event.touches.length === 1 && !running && !rotationGizmoActive && !isRotatingRobot) {
+                touchGesture.freeOrbitActive = true;
+                touchGesture.lastOrbitX = event.touches[0].clientX;
+                touchGesture.lastOrbitY = event.touches[0].clientY;
+                return;
+            }
             if(currentView !== 'free' || event.touches.length < 2) return;
             const t1 = event.touches[0], t2 = event.touches[1];
             const center = getTouchCenter(t1, t2);
             touchGesture.freeActive = true;
+            touchGesture.freeOrbitActive = false;
             touchGesture.lastDistance = getTouchDistance(t1, t2);
             touchGesture.lastCenterX = center.x;
             touchGesture.lastCenterY = center.y;
@@ -935,6 +946,22 @@
         }, { passive: false, capture: true });
 
         scene.addEventListener('touchmove', event => {
+            if(currentView === 'free' && touchGesture.freeOrbitActive && event.touches.length === 1) {
+                const touch = event.touches[0];
+                const deltaX = touch.clientX - touchGesture.lastOrbitX;
+                const deltaY = touch.clientY - touchGesture.lastOrbitY;
+                touchGesture.lastOrbitX = touch.clientX;
+                touchGesture.lastOrbitY = touch.clientY;
+                freeCameraOrbit.yaw -= deltaX * FREE_CAMERA_ORBIT_SPEED;
+                freeCameraOrbit.elevation = clamp(
+                    freeCameraOrbit.elevation + deltaY * FREE_CAMERA_ORBIT_SPEED,
+                    FREE_CAMERA_MIN_ELEVATION,
+                    FREE_CAMERA_MAX_ELEVATION
+                );
+                updateFreeCameraOrbit(true);
+                event.preventDefault();
+                return;
+            }
             if(currentView !== 'free' || !touchGesture.freeActive || event.touches.length < 2) return;
             const t1 = event.touches[0], t2 = event.touches[1];
             const center = getTouchCenter(t1, t2);
@@ -967,6 +994,7 @@
 
         scene.addEventListener('touchend', () => {
             touchGesture.freeActive = false;
+            touchGesture.freeOrbitActive = false;
         }, { passive: true, capture: true });
 
         updateFreeCameraOrbit(true);
@@ -1648,6 +1676,10 @@
 
     async function runCode() {
         if(running) return;
+        if(rotationGizmoActive) {
+            isRotatingRobot = false;
+            setRotationGizmoActive(false);
+        }
         running = true;
         document.getElementById('status').textContent = "Estado: Ejecutando...";
         const code = Blockly.JavaScript.workspaceToCode(workspace);
