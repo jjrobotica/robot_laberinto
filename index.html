@@ -580,6 +580,13 @@
     let lastTapForPlacement = { time: 0, x: 0, y: 0 };
     const DOUBLE_TAP_MAX_MS = 320;
     const DOUBLE_TAP_MAX_PX = 24;
+    const touchGesture = {
+        orthoActive: false,
+        freeActive: false,
+        lastDistance: 0,
+        lastCenterX: 0,
+        lastCenterY: 0
+    };
 
     // --- FUNCIONALIDAD DE VISTAS ---
     function syncViewButtons() {
@@ -848,6 +855,14 @@
 
     function clamp(value, min, max) { return Math.max(min, Math.min(max, value)); }
 
+    function getTouchDistance(t1, t2) {
+        return Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+    }
+
+    function getTouchCenter(t1, t2) {
+        return { x: (t1.clientX + t2.clientX) * 0.5, y: (t1.clientY + t2.clientY) * 0.5 };
+    }
+
     function getFreeCameraTarget() {
         const robot = document.getElementById('robot');
         const base = robot ? robot.object3D.position.clone().add(new THREE.Vector3(0, 0.32, 0)) : new THREE.Vector3(0, 0.45, 0);
@@ -907,6 +922,53 @@
             freeCameraOrbit.distance = clamp(freeCameraOrbit.distance + event.deltaY * FREE_CAMERA_ZOOM_SPEED, FREE_CAMERA_MIN_DISTANCE, FREE_CAMERA_MAX_DISTANCE);
             updateFreeCameraOrbit(true);
         }, { passive: false, capture: true });
+
+        scene.addEventListener('touchstart', event => {
+            if(currentView !== 'free' || event.touches.length < 2) return;
+            const t1 = event.touches[0], t2 = event.touches[1];
+            const center = getTouchCenter(t1, t2);
+            touchGesture.freeActive = true;
+            touchGesture.lastDistance = getTouchDistance(t1, t2);
+            touchGesture.lastCenterX = center.x;
+            touchGesture.lastCenterY = center.y;
+            event.preventDefault();
+        }, { passive: false, capture: true });
+
+        scene.addEventListener('touchmove', event => {
+            if(currentView !== 'free' || !touchGesture.freeActive || event.touches.length < 2) return;
+            const t1 = event.touches[0], t2 = event.touches[1];
+            const center = getTouchCenter(t1, t2);
+            const distance = getTouchDistance(t1, t2);
+            const deltaDistance = distance - touchGesture.lastDistance;
+            const deltaX = center.x - touchGesture.lastCenterX;
+            const deltaY = center.y - touchGesture.lastCenterY;
+
+            // Pinch zoom
+            freeCameraOrbit.distance = clamp(
+                freeCameraOrbit.distance - deltaDistance * 0.018,
+                FREE_CAMERA_MIN_DISTANCE,
+                FREE_CAMERA_MAX_DISTANCE
+            );
+
+            // Two-finger pan (si casi no hay pinch, sigue siendo útil para encuadre)
+            const right = new THREE.Vector3(Math.cos(freeCameraOrbit.yaw), 0, -Math.sin(freeCameraOrbit.yaw));
+            const up = new THREE.Vector3(0, 1, 0);
+            freeCameraOrbit.panOffset
+                .add(right.multiplyScalar(-deltaX * FREE_CAMERA_PAN_SPEED))
+                .add(up.multiplyScalar(deltaY * FREE_CAMERA_PAN_SPEED));
+            freeCameraOrbit.panOffset.y = clamp(freeCameraOrbit.panOffset.y, -1.2, 3);
+
+            touchGesture.lastDistance = distance;
+            touchGesture.lastCenterX = center.x;
+            touchGesture.lastCenterY = center.y;
+            updateFreeCameraOrbit(true);
+            event.preventDefault();
+        }, { passive: false, capture: true });
+
+        scene.addEventListener('touchend', () => {
+            touchGesture.freeActive = false;
+        }, { passive: true, capture: true });
+
         updateFreeCameraOrbit(true);
     }
 
@@ -1000,6 +1062,49 @@
             );
             updateOrthoCamera();
         }, { passive: false, capture: true });
+
+        scene.addEventListener('touchstart', event => {
+            if(currentView !== 'ortho' || event.touches.length < 2) return;
+            const t1 = event.touches[0], t2 = event.touches[1];
+            const center = getTouchCenter(t1, t2);
+            touchGesture.orthoActive = true;
+            touchGesture.lastDistance = getTouchDistance(t1, t2);
+            touchGesture.lastCenterX = center.x;
+            touchGesture.lastCenterY = center.y;
+            event.preventDefault();
+        }, { passive: false, capture: true });
+
+        scene.addEventListener('touchmove', event => {
+            if(currentView !== 'ortho' || !touchGesture.orthoActive || event.touches.length < 2) return;
+            const t1 = event.touches[0], t2 = event.touches[1];
+            const center = getTouchCenter(t1, t2);
+            const distance = getTouchDistance(t1, t2);
+            const deltaDistance = distance - touchGesture.lastDistance;
+            const deltaX = center.x - touchGesture.lastCenterX;
+            const deltaY = center.y - touchGesture.lastCenterY;
+
+            // Pinch zoom
+            orthoCameraState.zoom = clamp(
+                orthoCameraState.zoom * (1 + deltaDistance * 0.0035),
+                ORTHO_CAMERA_MIN_ZOOM,
+                ORTHO_CAMERA_MAX_ZOOM
+            );
+
+            // Two-finger pan
+            const panFactor = getAerialWorldUnitsPerPixel();
+            orthoCameraState.x -= deltaX * panFactor;
+            orthoCameraState.z -= deltaY * panFactor;
+
+            touchGesture.lastDistance = distance;
+            touchGesture.lastCenterX = center.x;
+            touchGesture.lastCenterY = center.y;
+            updateOrthoCamera();
+            event.preventDefault();
+        }, { passive: false, capture: true });
+
+        scene.addEventListener('touchend', () => {
+            touchGesture.orthoActive = false;
+        }, { passive: true, capture: true });
 
         updateOrthoCamera();
 
