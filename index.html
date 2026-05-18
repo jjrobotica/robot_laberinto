@@ -774,6 +774,7 @@
         robot.setAttribute('rotation', `0 ${rotationY} 0`);
         updateRotationGizmo();
         updateSensorHud();
+        if(currentView === 'ortho') updateOrthoCamera();
         updateFreeCameraOrbit();
     }
 
@@ -1035,6 +1036,20 @@
         return visibleHeight / height;
     }
 
+    function ensureRobotVisibleInOrtho() {
+        const pos = getRobotWorldPosition();
+        const aspect = getAerialViewportAspect();
+        const halfH = getAerialCameraHeight() * Math.tan(THREE.MathUtils.degToRad(AERIAL_CAMERA_FOV) / 2);
+        const halfW = halfH * aspect;
+        const pad = 0.35;
+
+        if(pos.x < orthoCameraState.x - halfW + pad) orthoCameraState.x = pos.x + halfW - pad;
+        else if(pos.x > orthoCameraState.x + halfW - pad) orthoCameraState.x = pos.x - halfW + pad;
+
+        if(pos.z < orthoCameraState.z - halfH + pad) orthoCameraState.z = pos.z + halfH - pad;
+        else if(pos.z > orthoCameraState.z + halfH - pad) orthoCameraState.z = pos.z - halfH + pad;
+    }
+
     function updateOrthoCamera() {
         const mainCam = document.getElementById('main-cam');
         if(!mainCam) return;
@@ -1042,6 +1057,10 @@
             const pos = getRobotWorldPosition();
             orthoCameraState.x = pos.x + orthoFollowOffsetX;
             orthoCameraState.z = pos.z + orthoFollowOffsetZ;
+        } else if(orthoCameraState.zoom > ORTHO_FOLLOW_ZOOM_THRESHOLD) {
+            // Regla de seguridad: si el zoom ya recortó escenario y el robot quedó afuera,
+            // reencuadrar aunque no esté activo el follow explícito.
+            ensureRobotVisibleInOrtho();
         }
         mainCam.setAttribute('camera', `active: ${currentView === 'ortho'}; fov: ${AERIAL_CAMERA_FOV}; near: 0.1; far: 100`);
         mainCam.setAttribute('position', `${orthoCameraState.x} ${getAerialCameraHeight()} ${orthoCameraState.z}`);
@@ -1116,12 +1135,14 @@
                 ORTHO_CAMERA_MAX_ZOOM
             );
             setOrthoFollowEnabled(orthoCameraState.zoom > ORTHO_FOLLOW_ZOOM_THRESHOLD);
+            ensureRobotVisibleInOrtho();
             updateOrthoCamera();
         }, { passive: false, capture: true });
 
         scene.addEventListener('touchstart', event => {
             if(currentView !== 'ortho') return;
             if(event.touches.length === 1) {
+                if(rotationGizmoActive || isRotatingRobot) return;
                 touchGesture.orthoPanActive = true;
                 touchGesture.lastOrthoX = event.touches[0].clientX;
                 touchGesture.lastOrthoY = event.touches[0].clientY;
@@ -1140,6 +1161,10 @@
 
         scene.addEventListener('touchmove', event => {
             if(currentView === 'ortho' && touchGesture.orthoPanActive && event.touches.length === 1) {
+                if(rotationGizmoActive || isRotatingRobot) {
+                    touchGesture.orthoPanActive = false;
+                    return;
+                }
                 const touch = event.touches[0];
                 const deltaX = touch.clientX - touchGesture.lastOrthoX;
                 const deltaY = touch.clientY - touchGesture.lastOrthoY;
