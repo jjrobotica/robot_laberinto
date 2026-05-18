@@ -560,6 +560,7 @@
         panOffset: new THREE.Vector3(0, 0, 0),
         initialized: false
     };
+    let orthoFollowRobot = false;
     const AERIAL_CAMERA_FOV = 60;
     const AERIAL_VIEW_MARGIN = 1.07;
     const AERIAL_BOARD_SPAN = size + 1.05;
@@ -582,6 +583,9 @@
     const DOUBLE_TAP_MAX_PX = 24;
     const touchGesture = {
         orthoActive: false,
+        orthoPanActive: false,
+        lastOrthoX: 0,
+        lastOrthoY: 0,
         freeActive: false,
         freeOrbitActive: false,
         lastOrbitX: 0,
@@ -1031,6 +1035,11 @@
     function updateOrthoCamera() {
         const mainCam = document.getElementById('main-cam');
         if(!mainCam) return;
+        if(orthoFollowRobot) {
+            const pos = getRobotWorldPosition();
+            orthoCameraState.x = pos.x;
+            orthoCameraState.z = pos.z;
+        }
         mainCam.setAttribute('camera', `active: ${currentView === 'ortho'}; fov: ${AERIAL_CAMERA_FOV}; near: 0.1; far: 100`);
         mainCam.setAttribute('position', `${orthoCameraState.x} ${getAerialCameraHeight()} ${orthoCameraState.z}`);
         mainCam.setAttribute('rotation', '-90 0 0');
@@ -1041,6 +1050,7 @@
         orthoCameraState.x = ORTHO_CAMERA_DEFAULT.x;
         orthoCameraState.z = ORTHO_CAMERA_DEFAULT.z;
         orthoCameraState.zoom = ORTHO_CAMERA_DEFAULT.zoom;
+        orthoFollowRobot = false;
         updateOrthoCamera();
     }
 
@@ -1056,6 +1066,7 @@
             if(event.shiftKey || isRotatingRobot || rotationGizmoActive || currentView !== 'ortho' || event.button !== 0) return;
             event.preventDefault();
             event.stopImmediatePropagation();
+            orthoFollowRobot = false;
             isPanning = true;
             lastX = event.clientX;
             lastY = event.clientY;
@@ -1088,14 +1099,23 @@
                 ORTHO_CAMERA_MIN_ZOOM,
                 ORTHO_CAMERA_MAX_ZOOM
             );
+            orthoFollowRobot = true;
             updateOrthoCamera();
         }, { passive: false, capture: true });
 
         scene.addEventListener('touchstart', event => {
-            if(currentView !== 'ortho' || event.touches.length < 2) return;
+            if(currentView !== 'ortho') return;
+            if(event.touches.length === 1) {
+                touchGesture.orthoPanActive = true;
+                touchGesture.lastOrthoX = event.touches[0].clientX;
+                touchGesture.lastOrthoY = event.touches[0].clientY;
+                return;
+            }
+            if(event.touches.length < 2) return;
             const t1 = event.touches[0], t2 = event.touches[1];
             const center = getTouchCenter(t1, t2);
             touchGesture.orthoActive = true;
+            touchGesture.orthoPanActive = false;
             touchGesture.lastDistance = getTouchDistance(t1, t2);
             touchGesture.lastCenterX = center.x;
             touchGesture.lastCenterY = center.y;
@@ -1103,6 +1123,20 @@
         }, { passive: false, capture: true });
 
         scene.addEventListener('touchmove', event => {
+            if(currentView === 'ortho' && touchGesture.orthoPanActive && event.touches.length === 1) {
+                const touch = event.touches[0];
+                const deltaX = touch.clientX - touchGesture.lastOrthoX;
+                const deltaY = touch.clientY - touchGesture.lastOrthoY;
+                touchGesture.lastOrthoX = touch.clientX;
+                touchGesture.lastOrthoY = touch.clientY;
+                const panFactor = getAerialWorldUnitsPerPixel();
+                orthoCameraState.x -= deltaX * panFactor;
+                orthoCameraState.z -= deltaY * panFactor;
+                orthoFollowRobot = false;
+                updateOrthoCamera();
+                event.preventDefault();
+                return;
+            }
             if(currentView !== 'ortho' || !touchGesture.orthoActive || event.touches.length < 2) return;
             const t1 = event.touches[0], t2 = event.touches[1];
             const center = getTouchCenter(t1, t2);
@@ -1117,6 +1151,7 @@
                 ORTHO_CAMERA_MIN_ZOOM,
                 ORTHO_CAMERA_MAX_ZOOM
             );
+            orthoFollowRobot = true;
 
             // Two-finger pan
             const panFactor = getAerialWorldUnitsPerPixel();
@@ -1132,6 +1167,7 @@
 
         scene.addEventListener('touchend', () => {
             touchGesture.orthoActive = false;
+            touchGesture.orthoPanActive = false;
         }, { passive: true, capture: true });
 
         updateOrthoCamera();
