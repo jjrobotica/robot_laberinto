@@ -1,0 +1,1452 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RoboMaze — A-Frame + Blockly</title>
+    <!-- A-Frame -->
+    <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
+    <!-- Blockly -->
+    <script src="https://unpkg.com/blockly/blockly.min.js"></script>
+    <script src="https://unpkg.com/blockly/javascript_compressed.js"></script>
+    <style>
+        body { margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; overflow: hidden; display: flex; flex-direction: column; height: 100vh; background: #1a1a1a; }
+        #header { height: 50px; background: #2c3e50; color: white; display: flex; align-items: center; padding: 0 20px; gap: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.3); z-index: 10; }
+        #header h1 { font-size: 18px; margin: 0; color: #1abc9c; }
+        #main { display: flex; flex: 1; overflow: hidden; }
+        #blocklyArea { flex: 0 0 40%; position: relative; background: #f0f0f0; }
+        #modeTabs { position: absolute; top: 0; left: 0; right: 0; height: 42px; display: flex; align-items: center; gap: 8px; padding: 6px 12px; background: #e5e7eb; border-bottom: 1px solid #cbd5e1; z-index: 5; }
+        #blocklyDiv { position: absolute; top: 42px; left: 0; right: 0; bottom: 0; }
+        #simContainer { flex: 1; position: relative; border-left: 2px solid #34495e; }
+        .controls { position: absolute; bottom: 20px; left: 20px; display: flex; gap: 10px; z-index: 100; }
+        .view-controls { position: absolute; top: 20px; left: 20px; display: flex; gap: 10px; z-index: 100; }
+        .btn { padding: 10px 15px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; transition: background 0.3s; color: white; }
+        .btn-run { background: #27ae60; } .btn-run:hover { background: #2ecc71; }
+        .btn-stop { background: #c0392b; } .btn-stop:hover { background: #e74c3c; }
+        .btn-maze { background: #2980b9; } .btn-maze:hover { background: #3498db; }
+        .btn-save { background: #0f766e; } .btn-save:hover { background: #14b8a6; }
+        .btn-load { background: #7c3aed; } .btn-load:hover { background: #8b5cf6; }
+        .btn-export { background: #b45309; } .btn-export:hover { background: #d97706; }
+        .btn-view { background: #8e44ad; } .btn-view:hover { background: #9b59b6; }
+        .btn-view.active { background: #3498db; box-shadow: 0 0 5px #3498db; }
+        .btn-mode { background: #475569; padding: 7px 12px; font-size: 12px; }
+        .btn-mode.active { background: #1D9E75; box-shadow: 0 0 4px #1D9E75; }
+        #status { position: absolute; top: 60px; right: 20px; background: rgba(0,0,0,0.6); color: white; padding: 10px; border-radius: 5px; font-size: 14px; z-index: 100; }
+        #sensorHud { position: absolute; top: 112px; right: 20px; min-width: 190px; background: rgba(15,23,42,0.86); color: #e2e8f0; padding: 10px 12px; border-radius: 8px; border: 1px solid rgba(148,163,184,0.35); font-family: 'Courier New', monospace; font-size: 12px; z-index: 100; box-shadow: 0 8px 20px rgba(0,0,0,0.25); }
+        #sensorHud .hud-title { color: #1abc9c; font-weight: bold; margin-bottom: 6px; letter-spacing: .04em; }
+        #sensorHud .hud-row { display: flex; justify-content: space-between; gap: 12px; padding: 2px 0; border-bottom: 1px solid rgba(148,163,184,0.16); }
+        #sensorHud .hud-row:last-child { border-bottom: none; }
+        #sensorHud .hud-value { color: #fde047; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<div id="header">
+    <h1>🤖 RoboMaze Pro</h1>
+    <span style="font-size: 12px; opacity: 0.8;">Simulador de Laberintos ABP</span>
+</div>
+
+<div id="main">
+    <div id="blocklyArea">
+        <div id="modeTabs">
+            <button class="btn btn-mode active" onclick="setMode('basic')">Básico</button>
+            <button class="btn btn-mode" onclick="setMode('advanced')">Avanzado</button>
+        </div>
+        <div id="blocklyDiv"></div>
+    </div>
+    
+    <div id="simContainer">
+        <div id="status">Estado: Listo</div>
+        <div id="sensorHud">
+            <div class="hud-title">ULTRASONIDOS</div>
+            <div class="hud-row"><span>Frente</span><span class="hud-value" id="hud-front">-- cm</span></div>
+            <div class="hud-row"><span>Izquierda</span><span class="hud-value" id="hud-left">-- cm</span></div>
+            <div class="hud-row"><span>Derecha</span><span class="hud-value" id="hud-right">-- cm</span></div>
+            <div class="hud-row"><span>Δ L-R</span><span class="hud-value" id="hud-delta">-- cm</span></div>
+            <div class="hud-row"><span>Motor I</span><span class="hud-value" id="hud-motor-left">0</span></div>
+            <div class="hud-row"><span>Motor D</span><span class="hud-value" id="hud-motor-right">0</span></div>
+        </div>
+        <div class="view-controls">
+            <button class="btn btn-view active" onclick="setView('ortho')">Hotéis Vista Aérea</button>
+            <button class="btn btn-view" onclick="setView('free')">👀 Vista Libre</button>
+        </div>
+        <div class="controls">
+            <button class="btn btn-run" onclick="runCode()">▶ Ejecutar Programa</button>
+            <button class="btn btn-stop" onclick="stopSim()">■ Detener</button>
+            <button class="btn btn-maze" onclick="generateMaze()">🎲 Nuevo Laberinto</button>
+            <button class="btn btn-save" onclick="saveBlocks()">💾 Guardar</button>
+            <button class="btn btn-load" onclick="loadBlocks()">📂 Cargar</button>
+            <button class="btn btn-export" onclick="exportBlocksXml()">⬇ XML</button>
+        </div>
+        
+        <a-scene embedded vr-mode-ui="enabled: false" cursor="rayOrigin: mouse">
+            <!-- Entorno -->
+            <a-sky color="#0f172a"></a-sky>
+            <a-plane position="0 -0.02 0" rotation="-90 0 0" width="24" height="24" color="#111827"></a-plane>
+            
+            <!-- Luces -->
+            <a-light type="ambient" color="#dbeafe" intensity="0.65"></a-light>
+            <a-light type="directional" color="#FFF" intensity="0.85" position="-3 6 4"></a-light>
+
+            <!-- Laberinto (Contenedor Dinámico) -->
+            <a-entity id="maze-container"></a-entity>
+
+            <!-- Meta -->
+            <a-entity id="goal">
+                <a-cylinder radius="0.36" height="0.06" color="#f59e0b" position="0 0.04 0"></a-cylinder>
+                <a-torus radius="0.34" radius-tubular="0.035" rotation="90 0 0" material="color: #fde047; emissive: #facc15; emissiveIntensity: 0.55" position="0 0.12 0"></a-torus>
+                <a-cone radius-bottom="0.18" radius-top="0" height="0.32" color="#f97316" position="0 0.36 0"></a-cone>
+            </a-entity>
+
+            <!-- Robot -->
+            <a-entity id="robot" position="0 0 0">
+                <a-box width="0.42" height="0.16" depth="0.54" color="#1D9E75" position="0 0.16 0" material="roughness: 0.45; metalness: 0.05"></a-box>
+                <a-box width="0.30" height="0.04" depth="0.30" color="#0F6E56" position="0 0.27 0.02"></a-box>
+                <a-box width="0.36" height="0.045" depth="0.08" color="#f0c040" position="0 0.12 -0.33"></a-box>
+                <a-cone radius-bottom="0.07" radius-top="0" height="0.18" color="#ffffff" rotation="-90 0 0" position="0 0.33 -0.18"></a-cone>
+                <a-sphere id="ultra-front" radius="0.045" color="#020617" position="0 0.16 -0.39"></a-sphere>
+                <a-sphere id="ultra-left" radius="0.04" color="#1e293b" position="-0.25 0.16 -0.02"></a-sphere>
+                <a-sphere id="ultra-right" radius="0.04" color="#1e293b" position="0.25 0.16 -0.02"></a-sphere>
+                <a-cylinder radius="0.075" height="0.055" color="#111827" rotation="0 0 90" position="-0.25 0.075 -0.15"></a-cylinder>
+                <a-cylinder radius="0.075" height="0.055" color="#111827" rotation="0 0 90" position="0.25 0.075 -0.15"></a-cylinder>
+                <a-cylinder radius="0.075" height="0.055" color="#111827" rotation="0 0 90" position="-0.25 0.075 0.15"></a-cylinder>
+                <a-cylinder radius="0.075" height="0.055" color="#111827" rotation="0 0 90" position="0.25 0.075 0.15"></a-cylinder>
+            </a-entity>
+
+            <!-- Cámara Global -->
+            <a-entity position="0 11 0" rotation="-90 0 0" camera="active: true; fov: 60; near: 0.1; far: 100" id="main-cam"></a-entity>
+            
+            <!-- Cámara Libre: rig orbital tipo OrbitControls.
+                 El rig sigue al robot, yaw gira horizontalmente, pitch limita la inclinación
+                 y la cámara queda a distancia sobre +Z mirando naturalmente hacia el centro. -->
+            <a-entity id="free-camera-rig" position="0 0.5 0">
+                <a-entity id="free-camera-yaw" rotation="0 135 0">
+                    <a-entity id="free-camera-pitch" rotation="-37 0 0">
+                        <a-entity id="free-camera" position="0 0 5.2" camera="active: false; fov: 45; near: 0.1; far: 100" look-controls="enabled: false" wasd-controls="enabled: false"></a-entity>
+                    </a-entity>
+                </a-entity>
+            </a-entity>
+        </a-scene>
+    </div>
+</div>
+
+<xml id="toolbox-basic" style="display: none">
+    <category name="Movimiento" colour="#5b67a5">
+        <block type="move_forward"></block>
+        <block type="turn_left"></block>
+        <block type="turn_right"></block>
+    </category>
+    <category name="Sensores" colour="#5ba55b">
+        <block type="sensor_wall_ahead"></block>
+        <block type="sensor_wall_left"></block>
+        <block type="sensor_wall_right"></block>
+    </category>
+    <category name="Lógica" colour="#5b80a5">
+        <block type="controls_if"></block>
+        <block type="logic_compare"></block>
+        <block type="logic_operation"></block>
+        <block type="logic_negate"></block>
+        <block type="logic_boolean"></block>
+    </category>
+</xml>
+
+<xml id="toolbox-advanced" style="display: none">
+    <category name="Movimiento" colour="#5b67a5">
+        <block type="set_left_motor"></block>
+        <block type="set_right_motor"></block>
+        <block type="stop_motors"></block>
+        <block type="wait_ms"></block>
+    </category>
+    <category name="Ultrasonidos" colour="#5ba55b">
+        <block type="ultrasonic_front"></block>
+        <block type="ultrasonic_left"></block>
+        <block type="ultrasonic_right"></block>
+    </category>
+    <category name="Lógica" colour="#5b80a5">
+        <block type="controls_if"></block>
+        <block type="logic_compare"></block>
+        <block type="logic_operation"></block>
+        <block type="logic_negate"></block>
+        <block type="logic_boolean"></block>
+    </category>
+    <category name="Matemática" colour="#5b67a5">
+        <block type="math_number"></block>
+        <block type="math_arithmetic"></block>
+        <block type="math_single"></block>
+        <block type="math_number_property"></block>
+    </category>
+    <category name="Funciones" colour="#995ba5" custom="PROCEDURE"></category>
+</xml>
+
+<script>
+    // --- CONFIGURACIÓN DE BLOQUES PERSONALIZADOS ---
+    Blockly.Blocks['arduino_setup'] = {
+        init: function() {
+            this.appendDummyInput().appendField("⚙️ AL INICIO (Setup)");
+            this.appendStatementInput("STACK").setCheck(null);
+            this.setColour(230);
+            this.setTooltip("Se ejecuta una vez.");
+            this.setDeletable(false);
+        }
+    };
+
+    Blockly.Blocks['arduino_loop'] = {
+        init: function() {
+            this.appendDummyInput().appendField("🔄 REPETIR POR SIEMPRE (Loop)");
+            this.appendStatementInput("STACK").setCheck(null);
+            this.setColour(120);
+            this.setTooltip("Se repite infinitamente.");
+            this.setDeletable(false);
+        }
+    };
+
+    Blockly.Blocks['move_forward'] = {
+        init: function() {
+            this.appendDummyInput().appendField("Avanzar 1 paso");
+            this.setPreviousStatement(true, null);
+            this.setNextStatement(true, null);
+            this.setColour(160);
+        }
+    };
+
+    Blockly.Blocks['turn_left'] = {
+        init: function() {
+            this.appendDummyInput().appendField("Girar a la Izquierda");
+            this.setPreviousStatement(true, null);
+            this.setNextStatement(true, null);
+            this.setColour(160);
+        }
+    };
+
+    Blockly.Blocks['turn_right'] = {
+        init: function() {
+            this.appendDummyInput().appendField("Girar a la Derecha");
+            this.setPreviousStatement(true, null);
+            this.setNextStatement(true, null);
+            this.setColour(160);
+        }
+    };
+
+    Blockly.Blocks['sensor_wall_ahead'] = {
+        init: function() {
+            this.appendDummyInput().appendField("¿Pared al frente?");
+            this.setOutput(true, "Boolean");
+            this.setColour(210);
+        }
+    };
+
+    Blockly.Blocks['sensor_wall_left'] = {
+        init: function() {
+            this.appendDummyInput().appendField("¿Pared a la izquierda?");
+            this.setOutput(true, "Boolean");
+            this.setColour(210);
+        }
+    };
+
+    Blockly.Blocks['sensor_wall_right'] = {
+        init: function() {
+            this.appendDummyInput().appendField("¿Pared a la derecha?");
+            this.setOutput(true, "Boolean");
+            this.setColour(210);
+        }
+    };
+
+    Blockly.Blocks['move_forward_smooth'] = {
+        init: function() {
+            this.appendDummyInput().appendField("Avanzar suave");
+            this.setPreviousStatement(true, null);
+            this.setNextStatement(true, null);
+            this.setColour(160);
+        }
+    };
+
+    Blockly.Blocks['steer_left'] = {
+        init: function() {
+            this.appendDummyInput().appendField("Corregir hacia la izquierda");
+            this.setPreviousStatement(true, null);
+            this.setNextStatement(true, null);
+            this.setColour(160);
+        }
+    };
+
+    Blockly.Blocks['steer_right'] = {
+        init: function() {
+            this.appendDummyInput().appendField("Corregir hacia la derecha");
+            this.setPreviousStatement(true, null);
+            this.setNextStatement(true, null);
+            this.setColour(160);
+        }
+    };
+
+    Blockly.Blocks['center_robot'] = {
+        init: function() {
+            this.appendDummyInput().appendField("Centrar robot");
+            this.setPreviousStatement(true, null);
+            this.setNextStatement(true, null);
+            this.setColour(160);
+        }
+    };
+
+    Blockly.Blocks['ultrasonic_front'] = {
+        init: function() {
+            this.appendDummyInput().appendField("distancia frente cm");
+            this.setOutput(true, "Number");
+            this.setColour(210);
+        }
+    };
+
+    Blockly.Blocks['ultrasonic_left'] = {
+        init: function() {
+            this.appendDummyInput().appendField("distancia izquierda cm");
+            this.setOutput(true, "Number");
+            this.setColour(210);
+        }
+    };
+
+    Blockly.Blocks['ultrasonic_right'] = {
+        init: function() {
+            this.appendDummyInput().appendField("distancia derecha cm");
+            this.setOutput(true, "Number");
+            this.setColour(210);
+        }
+    };
+
+    Blockly.Blocks['set_left_motor'] = {
+        init: function() {
+            this.appendValueInput("SPEED").setCheck("Number").appendField("motor izquierdo velocidad");
+            this.appendDummyInput().appendField("(-255 a 255)");
+            this.setPreviousStatement(true, null);
+            this.setNextStatement(true, null);
+            this.setColour(20);
+        }
+    };
+
+    Blockly.Blocks['set_right_motor'] = {
+        init: function() {
+            this.appendValueInput("SPEED").setCheck("Number").appendField("motor derecho velocidad");
+            this.appendDummyInput().appendField("(-255 a 255)");
+            this.setPreviousStatement(true, null);
+            this.setNextStatement(true, null);
+            this.setColour(20);
+        }
+    };
+
+    Blockly.Blocks['stop_motors'] = {
+        init: function() {
+            this.appendDummyInput().appendField("detener motores");
+            this.setPreviousStatement(true, null);
+            this.setNextStatement(true, null);
+            this.setColour(20);
+        }
+    };
+
+    Blockly.Blocks['wait_ms'] = {
+        init: function() {
+            this.appendValueInput("MS").setCheck("Number").appendField("esperar");
+            this.appendDummyInput().appendField("ms");
+            this.setPreviousStatement(true, null);
+            this.setNextStatement(true, null);
+            this.setColour(20);
+        }
+    };
+
+    // --- GENERADORES DE CÓDIGO (JS para simulación) ---
+    const jsGen = Blockly.JavaScript.forBlock ? Blockly.JavaScript.forBlock : Blockly.JavaScript;
+
+    jsGen['arduino_setup'] = function(block, generator) {
+        const gen = generator || Blockly.JavaScript;
+        return gen.statementToCode(block, 'STACK');
+    };
+
+    jsGen['arduino_loop'] = function(block, generator) {
+        const gen = generator || Blockly.JavaScript;
+        return "while(getRunning()) {\n" + gen.statementToCode(block, 'STACK') + "  await step();\n}\n";
+    };
+
+    jsGen['procedures_defnoreturn'] = function(block, generator) {
+        const gen = generator || Blockly.JavaScript;
+        const rawName = block.getFieldValue('NAME');
+        const functionName = gen.nameDB_ && Blockly.PROCEDURE_CATEGORY_NAME
+            ? gen.nameDB_.getName(rawName, Blockly.PROCEDURE_CATEGORY_NAME)
+            : rawName.replace(/[^\w]/g, '_');
+        const branch = gen.statementToCode(block, 'STACK');
+        return `async function ${functionName}() {\n${branch}}\n`;
+    };
+
+    jsGen['procedures_callnoreturn'] = function(block, generator) {
+        const gen = generator || Blockly.JavaScript;
+        const rawName = block.getProcedureCall();
+        const functionName = gen.nameDB_ && Blockly.PROCEDURE_CATEGORY_NAME
+            ? gen.nameDB_.getName(rawName, Blockly.PROCEDURE_CATEGORY_NAME)
+            : rawName.replace(/[^\w]/g, '_');
+        return `await ${functionName}();\n`;
+    };
+
+    jsGen['move_forward'] = function(block) { return "await robotAction('move');\n"; };
+    jsGen['turn_left'] = function(block) { return "await robotAction('left');\n"; };
+    jsGen['turn_right'] = function(block) { return "await robotAction('right');\n"; };
+    jsGen['move_forward_smooth'] = function(block) { return "await advancedRobotAction('forward');\n"; };
+    jsGen['steer_left'] = function(block) { return "await advancedRobotAction('steerLeft');\n"; };
+    jsGen['steer_right'] = function(block) { return "await advancedRobotAction('steerRight');\n"; };
+    jsGen['center_robot'] = function(block) { return "await advancedRobotAction('center');\n"; };
+    jsGen['sensor_wall_ahead'] = function(block, generator) {
+        const gen = generator || Blockly.JavaScript;
+        return ["checkWall('ahead')", gen.ORDER_FUNCTION_CALL];
+    };
+    jsGen['sensor_wall_left'] = function(block, generator) {
+        const gen = generator || Blockly.JavaScript;
+        return ["checkWall('left')", gen.ORDER_FUNCTION_CALL];
+    };
+    jsGen['sensor_wall_right'] = function(block, generator) {
+        const gen = generator || Blockly.JavaScript;
+        return ["checkWall('right')", gen.ORDER_FUNCTION_CALL];
+    };
+    jsGen['ultrasonic_front'] = function(block, generator) {
+        const gen = generator || Blockly.JavaScript;
+        return ["getUltrasonicDistance('front')", gen.ORDER_FUNCTION_CALL];
+    };
+    jsGen['ultrasonic_left'] = function(block, generator) {
+        const gen = generator || Blockly.JavaScript;
+        return ["getUltrasonicDistance('left')", gen.ORDER_FUNCTION_CALL];
+    };
+    jsGen['ultrasonic_right'] = function(block, generator) {
+        const gen = generator || Blockly.JavaScript;
+        return ["getUltrasonicDistance('right')", gen.ORDER_FUNCTION_CALL];
+    };
+    jsGen['set_left_motor'] = function(block, generator) {
+        const gen = generator || Blockly.JavaScript;
+        const speed = gen.valueToCode(block, 'SPEED', gen.ORDER_NONE) || '0';
+        return `setMotor('left', ${speed});\n`;
+    };
+    jsGen['set_right_motor'] = function(block, generator) {
+        const gen = generator || Blockly.JavaScript;
+        const speed = gen.valueToCode(block, 'SPEED', gen.ORDER_NONE) || '0';
+        return `setMotor('right', ${speed});\n`;
+    };
+    jsGen['stop_motors'] = function() { return "stopMotors();\n"; };
+    jsGen['wait_ms'] = function(block, generator) {
+        const gen = generator || Blockly.JavaScript;
+        const ms = gen.valueToCode(block, 'MS', gen.ORDER_NONE) || '0';
+        return `await delaySim(${ms});\n`;
+    };
+
+    // --- LÓGICA DEL LABERINTO ---
+    let maze = [];
+    const size = 11; // Debe ser impar: el algoritmo excava de a 2 celdas y así la meta queda conectada.
+    const robotState = {
+        x: 0, z: 0, dir: 0, // Básico: 0=N, 1=E, 2=S, 3=W
+        fx: 0, fz: 0, heading: 0, // Avanzado: posición continua en celdas + heading rad.
+        lateralOffset: 0, lateralVelocity: 0,
+        motorLeft: 0, motorRight: 0,
+        actualLeft: 0, actualRight: 0
+    };
+    let running = false;
+    let currentView = 'ortho'; // 'ortho' or 'free'
+    let currentMode = 'basic';
+    const ROBOT_ACTION_DURATION = 420;
+    const ROBOT_ACTION_PAUSE = 80;
+    const ROBOT_BASE_Y = 0;
+    const ROBOT_MAX_LATERAL_OFFSET = 0.18;
+    const CELL_SIZE_CM = 10; // Escala did?ctica: una baldosa visual representa 10 cm reales.
+    const ULTRASONIC_MAX_CM = 250;
+    const ULTRASONIC_MIN_CM = 0.3;
+    const ADVANCED_STEP_MS = 40;
+    const ADVANCED_LINEAR_SPEED = 0.0018; // celdas por ms a PWM 255.
+    const ADVANCED_WHEEL_BASE = 0.62; // distancia entre ruedas en celdas.
+    const ROBOT_COLLISION_RADIUS = 0.30; // radio del cuerpo en celdas para colisión continua.
+    const WALL_CELL_HALF_EXTENT = 0.46; // Las paredes visuales miden 0.92 celdas: el sensor debe pegar contra su cara real.
+    const BOUNDARY_WALL_HALF_THICKNESS = 0.06;
+    const ULTRASONIC_FRONT_OFFSET = 0.43; // Punta f?sica del sensor frontal, no el centro del robot.
+    const ULTRASONIC_SIDE_OFFSET = 0.29; // Cara externa de los sensores laterales.
+    const ULTRASONIC_SIDE_FORWARD_OFFSET = 0.02;
+    const ADVANCED_FRONT_STOP_CM = 1.2;
+    const FREE_CAMERA_ORBIT_SPEED = 0.006;
+    const FREE_CAMERA_ZOOM_SPEED = 0.0025;
+    const FREE_CAMERA_PAN_SPEED = 0.007;
+    const FREE_CAMERA_MIN_DISTANCE = 2.2;
+    const FREE_CAMERA_MAX_DISTANCE = 12;
+    const FREE_CAMERA_MIN_ELEVATION = 0.22;
+    const FREE_CAMERA_MAX_ELEVATION = Math.PI / 2 - 0.08;
+    const freeCameraOrbit = {
+        yaw: Math.PI * 0.75,
+        elevation: 0.65,
+        distance: 5.2,
+        panOffset: new THREE.Vector3(0, 0, 0),
+        initialized: false
+    };
+    const AERIAL_CAMERA_FOV = 60;
+    const AERIAL_VIEW_MARGIN = 1.07;
+    const AERIAL_BOARD_SPAN = size + 1.05;
+    const ORTHO_CAMERA_DEFAULT = { x: 0, z: 0, zoom: 1 };
+    const ORTHO_CAMERA_ZOOM_SPEED = 0.0015;
+    const ORTHO_CAMERA_MIN_ZOOM = 0.72;
+    const ORTHO_CAMERA_MAX_ZOOM = 5;
+    const orthoCameraState = { ...ORTHO_CAMERA_DEFAULT };
+    const BLOCKS_STORAGE_PREFIX = 'robomaze.blocks.';
+    const placementRaycaster = new THREE.Raycaster();
+    const placementMouse = new THREE.Vector2();
+    const placementGround = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+    const placementPoint = new THREE.Vector3();
+    let isPlacingRobot = false;
+
+    // --- FUNCIONALIDAD DE VISTAS ---
+    function setView(view) {
+        currentView = view;
+        
+        // Actualizar estado de botones
+        document.querySelectorAll('.btn-view').forEach(btn => btn.classList.remove('active'));
+        // Encontrar el botón que fue clickeado
+        const buttons = document.querySelectorAll('.btn-view');
+        for (let btn of buttons) {
+            if ((view === 'ortho' && btn.textContent.includes('Aérea')) || 
+                (view === 'free' && btn.textContent.includes('Libre'))) {
+                btn.classList.add('active');
+                break;
+            }
+        }
+        
+        const mainCam = document.getElementById('main-cam');
+        const freeCam = document.getElementById('free-camera');
+        
+        if (view === 'ortho') {
+            // Activar cámara ortográfica
+            freeCam.setAttribute('camera', 'active', false);
+            mainCam.setAttribute('camera', 'active', true);
+            updateOrthoCamera();
+            document.getElementById('status').textContent = "Estado: Vista Aérea - arrastrá para pan, ruedita para zoom";
+        } else {
+            // Activar cámara libre
+            mainCam.setAttribute('camera', 'active', false);
+            updateFreeCameraOrbit(true);
+            freeCam.setAttribute('camera', 'active', true);
+            // A-Frame cambia la cámara activa de forma interna; refrescamos un frame
+            // después para evitar que use la pose anterior.
+            requestAnimationFrame(() => updateFreeCameraOrbit(true));
+            document.getElementById('status').textContent = "Estado: Vista Libre - Izq orbita, der panea, ruedita zoom";
+        }
+    }
+
+    function setMode(mode) {
+        currentMode = mode;
+        document.querySelectorAll('.btn-mode').forEach(btn => btn.classList.remove('active'));
+        document.querySelectorAll('.btn-mode').forEach(btn => {
+            if((mode === 'basic' && btn.textContent.includes('B?sico')) ||
+               (mode === 'advanced' && btn.textContent.includes('Avanzado'))) {
+                btn.classList.add('active');
+            }
+        });
+
+        if(window.workspace) {
+            window.workspace.updateToolbox(document.getElementById(mode === 'advanced' ? 'toolbox-advanced' : 'toolbox-basic'));
+            if(!loadBlocks(mode, { silent: true })) loadDefaultProgram(mode);
+        }
+
+        if(mode === 'advanced') {
+            robotState.fx = robotState.x;
+            robotState.fz = robotState.z;
+            robotState.heading = dirToHeading(robotState.dir);
+        } else {
+            syncDiscreteFromContinuous();
+        }
+        stopMotors();
+        robotState.lateralOffset = 0;
+        robotState.lateralVelocity = 0;
+        updateRobotMesh();
+
+        document.getElementById('status').textContent = mode === 'advanced'
+            ? "Estado: Modo Avanzado - control diferencial de motores"
+            : "Estado: Modo B?sico";
+    }
+
+    function generateMaze() {
+        stopSim();
+        resetOrthoCamera();
+        setView('ortho');
+
+        const container = document.getElementById('maze-container');
+        container.innerHTML = '';
+        maze = Array(size).fill().map(() => Array(size).fill(1));
+
+        function walk(x, z) {
+            maze[z][x] = 0;
+            const dirs = [[0,1],[0,-1],[1,0],[-1,0]].sort(() => Math.random() - 0.5);
+            for(let [dx, dz] of dirs) {
+                const nx = x + dx * 2, nz = z + dz * 2;
+                if(nx >= 0 && nx < size && nz >= 0 && nz < size && maze[nz][nx] === 1) {
+                    maze[z + dz][x + dx] = 0;
+                    walk(nx, nz);
+                }
+            }
+        }
+        walk(0, 0);
+        maze[size - 1][size - 1] = 0;
+
+        const offset = -size / 2 + 0.5;
+        for(let z = 0; z < size; z++) {
+            for(let x = 0; x < size; x++) {
+                const tile = document.createElement('a-plane');
+                tile.setAttribute('position', `${x + offset} 0.003 ${z + offset}`);
+                tile.setAttribute('rotation', '-90 0 0');
+                tile.setAttribute('width', '0.94');
+                tile.setAttribute('height', '0.94');
+                tile.setAttribute('color', maze[z][x] === 1 ? '#1f2937' : '#e5e7eb');
+                tile.setAttribute('material', `roughness: 0.8; metalness: 0; opacity: ${maze[z][x] === 1 ? 0.35 : 1}`);
+                container.appendChild(tile);
+
+                if(maze[z][x] === 1) {
+                    const box = document.createElement('a-box');
+                    box.setAttribute('position', `${x + offset} 0.45 ${z + offset}`);
+                    box.setAttribute('width', '0.92');
+                    box.setAttribute('height', '0.9');
+                    box.setAttribute('depth', '0.92');
+                    box.setAttribute('material', 'color: #64748b; roughness: 0.7; metalness: 0.05');
+                    container.appendChild(box);
+                }
+            }
+        }
+        addMazeBoundary(container, offset);
+
+        robotState.x = 0; robotState.z = 0; robotState.dir = 1;
+        robotState.fx = 0; robotState.fz = 0; robotState.heading = dirToHeading(1);
+        robotState.lateralOffset = 0; robotState.lateralVelocity = 0;
+        robotState.motorLeft = 0; robotState.motorRight = 0; robotState.actualLeft = 0; robotState.actualRight = 0;
+        updateRobotMesh();
+
+        document.getElementById('goal').setAttribute('position', `${size - 1 + offset} 0 ${size - 1 + offset}`);
+        updateSensorHud();
+        document.getElementById('status').textContent = "Estado: Laberinto Generado";
+    }
+
+    function addMazeBoundary(container, offset) {
+        const center = offset + (size - 1) / 2;
+        const min = offset - 0.5;
+        const max = offset + size - 0.5;
+        const walls = [
+            { position: `${center} 0.28 ${min}`, width: size + 1, height: 0.56, depth: 0.12 },
+            { position: `${center} 0.28 ${max}`, width: size + 1, height: 0.56, depth: 0.12 },
+            { position: `${min} 0.28 ${center}`, width: 0.12, height: 0.56, depth: size + 1 },
+            { position: `${max} 0.28 ${center}`, width: 0.12, height: 0.56, depth: size + 1 }
+        ];
+        for(const wall of walls) {
+            const box = document.createElement('a-box');
+            box.setAttribute('position', wall.position);
+            box.setAttribute('width', wall.width);
+            box.setAttribute('height', wall.height);
+            box.setAttribute('depth', wall.depth);
+            box.setAttribute('material', 'color: #334155; roughness: 0.65');
+            container.appendChild(box);
+        }
+    }
+
+    function updateRobotMesh() {
+        const robot = document.getElementById('robot');
+        const position = getRobotWorldPosition();
+        robot.setAttribute('position', `${position.x} ${position.y} ${position.z}`);
+        const rotationY = currentMode === 'advanced'
+            ? 270 - THREE.MathUtils.radToDeg(robotState.heading)
+            : getRobotRotationY(robotState.dir);
+        robot.setAttribute('rotation', `0 ${rotationY} 0`);
+        updateSensorHud();
+        updateFreeCameraOrbit();
+    }
+
+    function getRobotWorldPosition(x = robotState.x, z = robotState.z) {
+        const offset = -size / 2 + 0.5;
+        if(currentMode === 'advanced') {
+            return { x: robotState.fx + offset, y: ROBOT_BASE_Y, z: robotState.fz + offset };
+        }
+        const side = getDirectionVector((robotState.dir + 1) % 4);
+        return { x: x + offset + side.dx * robotState.lateralOffset, y: ROBOT_BASE_Y, z: z + offset + side.dz * robotState.lateralOffset };
+    }
+
+    function getDirectionVector(dir) {
+        if(dir === 0) return { dx: 0, dz: -1 };
+        if(dir === 1) return { dx: 1, dz: 0 };
+        if(dir === 2) return { dx: 0, dz: 1 };
+        return { dx: -1, dz: 0 };
+    }
+
+    function dirToHeading(dir) {
+        if(dir === 0) return -Math.PI / 2;
+        if(dir === 1) return 0;
+        if(dir === 2) return Math.PI / 2;
+        return Math.PI;
+    }
+
+    function headingToDir(heading) {
+        const normalized = ((heading % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
+        const quarter = Math.round(normalized / (Math.PI / 2)) % 4;
+        return [1, 2, 3, 0][quarter];
+    }
+
+    function syncDiscreteFromContinuous() {
+        robotState.x = clamp(Math.round(robotState.fx), 0, size - 1);
+        robotState.z = clamp(Math.round(robotState.fz), 0, size - 1);
+        robotState.dir = headingToDir(robotState.heading);
+    }
+
+    function getRobotRotationY(dir = robotState.dir) {
+        if(dir === 0) return 0;
+        if(dir === 1) return 270;
+        if(dir === 2) return 180;
+        return 90;
+    }
+
+    function easeInOutCubic(t) {
+        return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+    }
+
+    function shortestAngleDelta(from, to) {
+        return ((to - from + 540) % 360) - 180;
+    }
+
+    function animateRobotTo({ targetX = robotState.x, targetZ = robotState.z, targetDir = robotState.dir, duration = ROBOT_ACTION_DURATION, bounce = 0.018, lean = 0 }) {
+        const robot = document.getElementById('robot');
+        const startPosition = robot.object3D.position.clone();
+        const endPosition = getRobotWorldPosition(targetX, targetZ);
+        const startRotationY = THREE.MathUtils.radToDeg(robot.object3D.rotation.y);
+        const endRotationY = getRobotRotationY(targetDir);
+        const rotationDelta = shortestAngleDelta(startRotationY, endRotationY);
+        const startRoll = robot.object3D.rotation.z;
+        const targetRoll = THREE.MathUtils.degToRad(lean);
+
+        return new Promise(resolve => {
+            const startTime = performance.now();
+            function frame(now) {
+                const progress = Math.min((now - startTime) / duration, 1);
+                const eased = easeInOutCubic(progress);
+                const suspension = Math.sin(progress * Math.PI) * bounce;
+                robot.object3D.position.set(
+                    THREE.MathUtils.lerp(startPosition.x, endPosition.x, eased),
+                    THREE.MathUtils.lerp(startPosition.y, endPosition.y, eased) + suspension,
+                    THREE.MathUtils.lerp(startPosition.z, endPosition.z, eased)
+                );
+                robot.object3D.rotation.y = THREE.MathUtils.degToRad(startRotationY + rotationDelta * eased);
+                robot.object3D.rotation.z = THREE.MathUtils.lerp(startRoll, targetRoll, Math.sin(progress * Math.PI));
+                updateFreeCameraOrbit();
+                if(progress < 1 && running) requestAnimationFrame(frame);
+                else {
+                    robot.object3D.position.set(endPosition.x, endPosition.y, endPosition.z);
+                    robot.object3D.rotation.y = THREE.MathUtils.degToRad(endRotationY);
+                    robot.object3D.rotation.z = 0;
+                    resolve();
+                }
+            }
+            requestAnimationFrame(frame);
+        });
+    }
+
+    function clamp(value, min, max) { return Math.max(min, Math.min(max, value)); }
+
+    function getFreeCameraTarget() {
+        const robot = document.getElementById('robot');
+        const base = robot ? robot.object3D.position.clone().add(new THREE.Vector3(0, 0.32, 0)) : new THREE.Vector3(0, 0.45, 0);
+        return base.add(freeCameraOrbit.panOffset);
+    }
+
+    function updateFreeCameraOrbit(force = false) {
+        if(currentView !== 'free' && !force) return;
+        const rig = document.getElementById('free-camera-rig');
+        const yaw = document.getElementById('free-camera-yaw');
+        const pitch = document.getElementById('free-camera-pitch');
+        const camera = document.getElementById('free-camera');
+        if(!rig || !yaw || !pitch || !camera) return;
+        const target = getFreeCameraTarget();
+        rig.setAttribute('position', `${target.x} ${target.y} ${target.z}`);
+        yaw.setAttribute('rotation', `0 ${THREE.MathUtils.radToDeg(freeCameraOrbit.yaw)} 0`);
+        pitch.setAttribute('rotation', `${-THREE.MathUtils.radToDeg(freeCameraOrbit.elevation)} 0 0`);
+        camera.setAttribute('position', `0 0 ${freeCameraOrbit.distance}`);
+        freeCameraOrbit.initialized = true;
+    }
+
+    function initFreeCameraOrbit() {
+        const scene = document.querySelector('a-scene');
+        if(!scene) return;
+        let isOrbiting = false, isPanning = false, lastX = 0, lastY = 0;
+        scene.addEventListener('contextmenu', event => event.preventDefault());
+        scene.addEventListener('mousedown', event => {
+            if(event.shiftKey) return;
+            if(currentView !== 'free' || (event.button !== 0 && event.button !== 2)) return;
+            event.preventDefault(); event.stopImmediatePropagation();
+            isOrbiting = event.button === 0; isPanning = event.button === 2;
+            lastX = event.clientX; lastY = event.clientY;
+        }, true);
+        window.addEventListener('mouseup', event => {
+            if(event.button === 0) isOrbiting = false;
+            if(event.button === 2) isPanning = false;
+        });
+        window.addEventListener('mousemove', event => {
+            if((!isOrbiting && !isPanning) || currentView !== 'free') return;
+            const deltaX = event.clientX - lastX, deltaY = event.clientY - lastY;
+            lastX = event.clientX; lastY = event.clientY;
+            if(isOrbiting) {
+                freeCameraOrbit.yaw -= deltaX * FREE_CAMERA_ORBIT_SPEED;
+                freeCameraOrbit.elevation = clamp(freeCameraOrbit.elevation + deltaY * FREE_CAMERA_ORBIT_SPEED, FREE_CAMERA_MIN_ELEVATION, FREE_CAMERA_MAX_ELEVATION);
+            } else {
+                const right = new THREE.Vector3(Math.cos(freeCameraOrbit.yaw), 0, -Math.sin(freeCameraOrbit.yaw));
+                const up = new THREE.Vector3(0, 1, 0);
+                freeCameraOrbit.panOffset.add(right.multiplyScalar(-deltaX * FREE_CAMERA_PAN_SPEED)).add(up.multiplyScalar(deltaY * FREE_CAMERA_PAN_SPEED));
+                freeCameraOrbit.panOffset.y = clamp(freeCameraOrbit.panOffset.y, -1.2, 3);
+            }
+            updateFreeCameraOrbit(true);
+        });
+        scene.addEventListener('wheel', event => {
+            if(currentView !== 'free') return;
+            event.preventDefault(); event.stopImmediatePropagation();
+            freeCameraOrbit.distance = clamp(freeCameraOrbit.distance + event.deltaY * FREE_CAMERA_ZOOM_SPEED, FREE_CAMERA_MIN_DISTANCE, FREE_CAMERA_MAX_DISTANCE);
+            updateFreeCameraOrbit(true);
+        }, { passive: false, capture: true });
+        updateFreeCameraOrbit(true);
+    }
+
+    function initFreeCameraPan() { initFreeCameraOrbit(); }
+
+    function getAerialViewportAspect() {
+        const container = document.getElementById('simContainer');
+        const rect = container ? container.getBoundingClientRect() : null;
+        if(!rect || rect.width <= 0 || rect.height <= 0) return 1;
+        return rect.width / rect.height;
+    }
+
+    function getAerialBaseHeight() {
+        const aspect = getAerialViewportAspect();
+        const visibleSpanNeeded = Math.max(AERIAL_BOARD_SPAN, AERIAL_BOARD_SPAN / Math.max(0.1, aspect)) * AERIAL_VIEW_MARGIN;
+        const fovRad = THREE.MathUtils.degToRad(AERIAL_CAMERA_FOV);
+        return visibleSpanNeeded / (2 * Math.tan(fovRad / 2));
+    }
+
+    function getAerialCameraHeight() {
+        return getAerialBaseHeight() / orthoCameraState.zoom;
+    }
+
+    function getAerialWorldUnitsPerPixel() {
+        const container = document.getElementById('simContainer');
+        const rect = container ? container.getBoundingClientRect() : null;
+        const height = rect && rect.height > 0 ? rect.height : 1;
+        const visibleHeight = 2 * getAerialCameraHeight() * Math.tan(THREE.MathUtils.degToRad(AERIAL_CAMERA_FOV) / 2);
+        return visibleHeight / height;
+    }
+
+    function updateOrthoCamera() {
+        const mainCam = document.getElementById('main-cam');
+        if(!mainCam) return;
+        mainCam.setAttribute('camera', `active: ${currentView === 'ortho'}; fov: ${AERIAL_CAMERA_FOV}; near: 0.1; far: 100`);
+        mainCam.setAttribute('position', `${orthoCameraState.x} ${getAerialCameraHeight()} ${orthoCameraState.z}`);
+        mainCam.setAttribute('rotation', '-90 0 0');
+        mainCam.setAttribute('scale', '1 1 1');
+    }
+
+    function resetOrthoCamera() {
+        orthoCameraState.x = ORTHO_CAMERA_DEFAULT.x;
+        orthoCameraState.z = ORTHO_CAMERA_DEFAULT.z;
+        orthoCameraState.zoom = ORTHO_CAMERA_DEFAULT.zoom;
+        updateOrthoCamera();
+    }
+
+    function initOrthoCameraControls() {
+        const scene = document.querySelector('a-scene');
+        if(!scene) return;
+
+        let isPanning = false;
+        let lastX = 0;
+        let lastY = 0;
+
+        scene.addEventListener('mousedown', event => {
+            if(event.shiftKey || currentView !== 'ortho' || event.button !== 0) return;
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            isPanning = true;
+            lastX = event.clientX;
+            lastY = event.clientY;
+        }, true);
+
+        window.addEventListener('mouseup', event => {
+            if(event.button === 0) isPanning = false;
+        });
+
+        window.addEventListener('mousemove', event => {
+            if(!isPanning || currentView !== 'ortho') return;
+            const deltaX = event.clientX - lastX;
+            const deltaY = event.clientY - lastY;
+            lastX = event.clientX;
+            lastY = event.clientY;
+
+            const panFactor = getAerialWorldUnitsPerPixel();
+            orthoCameraState.x -= deltaX * panFactor;
+            orthoCameraState.z -= deltaY * panFactor;
+            updateOrthoCamera();
+        });
+
+        scene.addEventListener('wheel', event => {
+            if(currentView !== 'ortho') return;
+            event.preventDefault();
+            event.stopImmediatePropagation();
+
+            orthoCameraState.zoom = clamp(
+                orthoCameraState.zoom * (1 - event.deltaY * ORTHO_CAMERA_ZOOM_SPEED),
+                ORTHO_CAMERA_MIN_ZOOM,
+                ORTHO_CAMERA_MAX_ZOOM
+            );
+            updateOrthoCamera();
+        }, { passive: false, capture: true });
+
+        updateOrthoCamera();
+
+        window.addEventListener('resize', () => {
+            if(currentView === 'ortho') updateOrthoCamera();
+        });
+    }
+
+    function getGroundPointFromPointer(event) {
+        const scene = document.querySelector('a-scene');
+        if(!scene || !scene.camera || !scene.canvas) return null;
+
+        const rect = scene.canvas.getBoundingClientRect();
+        placementMouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+        placementMouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+        placementRaycaster.setFromCamera(placementMouse, scene.camera);
+
+        const hit = placementRaycaster.ray.intersectPlane(placementGround, placementPoint);
+        return hit ? placementPoint.clone() : null;
+    }
+
+    function worldToGridPoint(worldPoint) {
+        const offset = -size / 2 + 0.5;
+        return {
+            x: worldPoint.x - offset,
+            z: worldPoint.z - offset
+        };
+    }
+
+    function isOpenCell(x, z) {
+        return x >= 0 && x < size && z >= 0 && z < size && maze[z][x] === 0;
+    }
+
+    function placeRobotAtWorldPoint(worldPoint) {
+        const grid = worldToGridPoint(worldPoint);
+        stopMotors();
+
+        if(currentMode === 'advanced') {
+            const nextFx = clamp(grid.x, 0, size - 1);
+            const nextFz = clamp(grid.z, 0, size - 1);
+            if(isRobotCollidingAt(nextFx, nextFz)) return false;
+
+            robotState.fx = nextFx;
+            robotState.fz = nextFz;
+            syncDiscreteFromContinuous();
+        } else {
+            const nextX = clamp(Math.round(grid.x), 0, size - 1);
+            const nextZ = clamp(Math.round(grid.z), 0, size - 1);
+            if(!isOpenCell(nextX, nextZ)) return false;
+
+            robotState.x = nextX;
+            robotState.z = nextZ;
+            robotState.fx = nextX;
+            robotState.fz = nextZ;
+        }
+
+        robotState.lateralOffset = 0;
+        robotState.lateralVelocity = 0;
+        updateRobotMesh();
+        document.getElementById('status').textContent = "Estado: Robot reposicionado";
+        return true;
+    }
+
+    function rotateRobotTowardWorldPoint(worldPoint) {
+        const grid = worldToGridPoint(worldPoint);
+        const dx = grid.x - robotState.fx;
+        const dz = grid.z - robotState.fz;
+        if(dx * dx + dz * dz < 0.01) return;
+
+        const heading = Math.atan2(dz, dx);
+        robotState.heading = heading;
+        robotState.dir = headingToDir(heading);
+        updateRobotMesh();
+    }
+
+    function initRobotPlacement() {
+        const scene = document.querySelector('a-scene');
+        if(!scene) return;
+
+        scene.addEventListener('mousedown', event => {
+            if(running || !event.shiftKey || event.button !== 0) return;
+
+            const point = getGroundPointFromPointer(event);
+            if(!point) return;
+
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            isPlacingRobot = placeRobotAtWorldPoint(point);
+        }, true);
+
+        window.addEventListener('mousemove', event => {
+            if(!isPlacingRobot) return;
+
+            const point = getGroundPointFromPointer(event);
+            if(!point) return;
+
+            event.preventDefault();
+            rotateRobotTowardWorldPoint(point);
+        });
+
+        window.addEventListener('mouseup', () => {
+            if(isPlacingRobot) {
+                isPlacingRobot = false;
+                document.getElementById('status').textContent = "Estado: Robot colocado";
+            }
+        });
+    }
+
+    function getRelativeDir(relativeDir) {
+        if(relativeDir === 'left') return (robotState.dir + 3) % 4;
+        if(relativeDir === 'right') return (robotState.dir + 1) % 4;
+        return robotState.dir;
+    }
+
+    function getUltrasonicDistance(relativeDir = 'front') {
+        if(!maze.length) return 0;
+        return getRaycastUltrasonicDistance(relativeDir);
+    }
+
+    function getRaycastUltrasonicDistance(relativeDir = 'front') {
+        const pose = getUltrasonicPose(relativeDir);
+        const maxCells = ULTRASONIC_MAX_CM / CELL_SIZE_CM;
+        let nearest = maxCells;
+
+        forEachWallBounds(({ minX, maxX, minZ, maxZ }) => {
+            const hit = rayAabbDistance2D(pose.x, pose.z, pose.dx, pose.dz, minX, maxX, minZ, maxZ);
+            if(hit !== null && hit < nearest) nearest = hit;
+        });
+
+        return normalizeDistanceCm(nearest * CELL_SIZE_CM);
+    }
+
+    function normalizeDistanceCm(distanceCm) {
+        const clamped = Math.min(ULTRASONIC_MAX_CM, Math.max(ULTRASONIC_MIN_CM, distanceCm));
+        return Math.round(clamped * 10) / 10;
+    }
+
+    function getSensorRobotPose() {
+        if(currentMode === 'advanced') {
+            return { x: robotState.fx, z: robotState.fz, heading: robotState.heading };
+        }
+
+        const heading = dirToHeading(robotState.dir);
+        const lateralDir = getDirectionVector((robotState.dir + 1) % 4);
+        return {
+            x: robotState.x + lateralDir.dx * robotState.lateralOffset,
+            z: robotState.z + lateralDir.dz * robotState.lateralOffset,
+            heading
+        };
+    }
+
+    function getUltrasonicPose(relativeDir = 'front') {
+        const base = getSensorRobotPose();
+        const forward = { dx: Math.cos(base.heading), dz: Math.sin(base.heading) };
+        const sideAngle = relativeDir === 'left' ? base.heading - Math.PI / 2 : base.heading + Math.PI / 2;
+        const side = { dx: Math.cos(sideAngle), dz: Math.sin(sideAngle) };
+
+        if(relativeDir === 'left' || relativeDir === 'right') {
+            return {
+                x: base.x + side.dx * ULTRASONIC_SIDE_OFFSET + forward.dx * ULTRASONIC_SIDE_FORWARD_OFFSET,
+                z: base.z + side.dz * ULTRASONIC_SIDE_OFFSET + forward.dz * ULTRASONIC_SIDE_FORWARD_OFFSET,
+                dx: side.dx,
+                dz: side.dz
+            };
+        }
+
+        return {
+            x: base.x + forward.dx * ULTRASONIC_FRONT_OFFSET,
+            z: base.z + forward.dz * ULTRASONIC_FRONT_OFFSET,
+            dx: forward.dx,
+            dz: forward.dz
+        };
+    }
+
+    function forEachWallBounds(callback) {
+        for(let z = 0; z < size; z++) {
+            for(let x = 0; x < size; x++) {
+                if(maze[z][x] !== 1) continue;
+                callback({
+                    minX: x - WALL_CELL_HALF_EXTENT,
+                    maxX: x + WALL_CELL_HALF_EXTENT,
+                    minZ: z - WALL_CELL_HALF_EXTENT,
+                    maxZ: z + WALL_CELL_HALF_EXTENT
+                });
+            }
+        }
+
+        const min = -0.5;
+        const max = size - 0.5;
+        callback({ minX: min, maxX: max, minZ: min - BOUNDARY_WALL_HALF_THICKNESS, maxZ: min + BOUNDARY_WALL_HALF_THICKNESS });
+        callback({ minX: min, maxX: max, minZ: max - BOUNDARY_WALL_HALF_THICKNESS, maxZ: max + BOUNDARY_WALL_HALF_THICKNESS });
+        callback({ minX: min - BOUNDARY_WALL_HALF_THICKNESS, maxX: min + BOUNDARY_WALL_HALF_THICKNESS, minZ: min, maxZ: max });
+        callback({ minX: max - BOUNDARY_WALL_HALF_THICKNESS, maxX: max + BOUNDARY_WALL_HALF_THICKNESS, minZ: min, maxZ: max });
+    }
+
+    function rayAabbDistance2D(originX, originZ, dirX, dirZ, minX, maxX, minZ, maxZ) {
+        const EPS = 1e-6;
+        let tMin = -Infinity;
+        let tMax = Infinity;
+
+        if(Math.abs(dirX) < EPS) {
+            if(originX < minX || originX > maxX) return null;
+        } else {
+            const tx1 = (minX - originX) / dirX;
+            const tx2 = (maxX - originX) / dirX;
+            tMin = Math.max(tMin, Math.min(tx1, tx2));
+            tMax = Math.min(tMax, Math.max(tx1, tx2));
+        }
+
+        if(Math.abs(dirZ) < EPS) {
+            if(originZ < minZ || originZ > maxZ) return null;
+        } else {
+            const tz1 = (minZ - originZ) / dirZ;
+            const tz2 = (maxZ - originZ) / dirZ;
+            tMin = Math.max(tMin, Math.min(tz1, tz2));
+            tMax = Math.min(tMax, Math.max(tz1, tz2));
+        }
+
+        const hitDistance = Math.max(tMin, 0);
+        return tMax >= hitDistance ? hitDistance : null;
+    }
+
+    function isWallAtContinuous(x, z) {
+        const cellX = Math.round(x), cellZ = Math.round(z);
+        if(cellX < 0 || cellX >= size || cellZ < 0 || cellZ >= size) return true;
+        return maze[cellZ][cellX] === 1;
+    }
+
+    function isRobotCollidingAt(x, z) {
+        const samples = [
+            [0, 0],
+            [ROBOT_COLLISION_RADIUS, 0],
+            [-ROBOT_COLLISION_RADIUS, 0],
+            [0, ROBOT_COLLISION_RADIUS],
+            [0, -ROBOT_COLLISION_RADIUS],
+            [ROBOT_COLLISION_RADIUS * 0.72, ROBOT_COLLISION_RADIUS * 0.72],
+            [-ROBOT_COLLISION_RADIUS * 0.72, ROBOT_COLLISION_RADIUS * 0.72],
+            [ROBOT_COLLISION_RADIUS * 0.72, -ROBOT_COLLISION_RADIUS * 0.72],
+            [-ROBOT_COLLISION_RADIUS * 0.72, -ROBOT_COLLISION_RADIUS * 0.72]
+        ];
+        return samples.some(([dx, dz]) => isWallAtContinuous(x + dx, z + dz));
+    }
+
+    function updateSensorHud() {
+        if(!maze.length) return;
+        const front = getUltrasonicDistance('front'), left = getUltrasonicDistance('left'), right = getUltrasonicDistance('right');
+        const delta = Math.round((left - right) * 10) / 10;
+        document.getElementById('hud-front').textContent = formatDistanceForHud(front);
+        document.getElementById('hud-left').textContent = formatDistanceForHud(left);
+        document.getElementById('hud-right').textContent = formatDistanceForHud(right);
+        document.getElementById('hud-delta').textContent = `${delta > 0 ? '+' : ''}${formatDistanceForHud(delta, true)}`;
+        updateMotorHud();
+    }
+
+    function formatDistanceForHud(distanceCm, signed = false) {
+        const absCm = Math.abs(distanceCm);
+        const sign = signed && distanceCm < 0 ? '-' : '';
+        if(absCm < 10) return `${sign}${absCm.toFixed(1)} cm (${Math.round(absCm * 10)} mm)`;
+        return `${sign}${Math.round(absCm)} cm`;
+    }
+
+    function updateMotorHud() {
+        document.getElementById('hud-motor-left').textContent = `${Math.round(robotState.motorLeft)}`;
+        document.getElementById('hud-motor-right').textContent = `${Math.round(robotState.motorRight)}`;
+    }
+
+    async function advancedRobotAction(type) {
+        if(!running) return;
+        if(type === 'forward') { setMotor('left', 180); setMotor('right', 180); await delaySim(260); return; }
+        if(type === 'steerLeft') { setMotor('left', 125); setMotor('right', 175); await delaySim(120); }
+        else if(type === 'steerRight') { setMotor('left', 175); setMotor('right', 125); await delaySim(120); }
+        else if(type === 'center') { setMotor('left', 160); setMotor('right', 160); await delaySim(100); }
+    }
+
+    function setMotor(side, speed) {
+        const value = clamp(Number(speed) || 0, -255, 255);
+        const nextLeft = side === 'left' ? value : robotState.motorLeft;
+        const nextRight = side === 'right' ? value : robotState.motorRight;
+        if(nextLeft > 0 && nextRight > 0 && getUltrasonicDistance('front') <= ADVANCED_FRONT_STOP_CM) {
+            stopMotors();
+            document.getElementById('status').textContent = "Estado: Obst?culo demasiado cerca";
+            return;
+        }
+        if(side === 'left') robotState.motorLeft = value;
+        else robotState.motorRight = value;
+        updateMotorHud();
+    }
+
+    function stopMotors() {
+        robotState.motorLeft = 0; robotState.motorRight = 0;
+        updateMotorHud();
+    }
+
+    async function delaySim(ms) {
+        const total = Math.max(0, Number(ms) || 0);
+        let elapsed = 0;
+        while(running && elapsed < total) {
+            const dt = Math.min(ADVANCED_STEP_MS, total - elapsed);
+            simulateAdvancedPhysics(dt);
+            elapsed += dt;
+            await new Promise(r => setTimeout(r, dt));
+        }
+    }
+
+    function simulateAdvancedPhysics(dt) {
+        if(currentMode !== 'advanced') return;
+        const inertia = 1 - Math.exp(-dt * 0.012);
+        robotState.actualLeft += (robotState.motorLeft - robotState.actualLeft) * inertia;
+        robotState.actualRight += (robotState.motorRight - robotState.actualRight) * inertia;
+        const left = robotState.actualLeft, right = robotState.actualRight;
+        const linear = ((left + right) / 2) * ADVANCED_LINEAR_SPEED * dt / 255;
+        const angular = ((right - left) / ADVANCED_WHEEL_BASE) * ADVANCED_LINEAR_SPEED * dt / 255;
+        const nextHeading = robotState.heading + angular;
+        const nextFx = robotState.fx + Math.cos(nextHeading) * linear;
+        const nextFz = robotState.fz + Math.sin(nextHeading) * linear;
+        if(!isRobotCollidingAt(nextFx, nextFz)) {
+            robotState.fx = clamp(nextFx, 0, size - 1);
+            robotState.fz = clamp(nextFz, 0, size - 1);
+            robotState.heading = nextHeading;
+        } else {
+            robotState.actualLeft = 0;
+            robotState.actualRight = 0;
+            stopMotors();
+            document.getElementById('status').textContent = "Estado: Colisi?n detectada!";
+        }
+        syncDiscreteFromContinuous();
+        updateRobotMesh();
+        checkWin();
+    }
+
+    function applyLateralPhysics(input) { /* compatibilidad: avanzado ahora usa motores. */ }
+
+    async function robotAction(type) {
+        if(!running) return;
+        if(currentMode === 'advanced') return;
+        robotState.lateralOffset = 0; robotState.lateralVelocity = 0;
+        await new Promise(r => setTimeout(r, ROBOT_ACTION_PAUSE));
+        if(type === 'move') {
+            let nx = robotState.x, nz = robotState.z;
+            const vector = getDirectionVector(robotState.dir);
+            nx += vector.dx; nz += vector.dz;
+            if(nx >= 0 && nx < size && nz >= 0 && nz < size && maze[nz][nx] === 0) {
+                await animateRobotTo({ targetX: nx, targetZ: nz, bounce: 0.014 });
+                robotState.x = nx; robotState.z = nz; robotState.fx = nx; robotState.fz = nz;
+            } else document.getElementById('status').textContent = "Estado: Colisi?n detectada!";
+        } else if(type === 'left') {
+            const nextDir = (robotState.dir + 3) % 4;
+            await animateRobotTo({ targetDir: nextDir, bounce: 0.008, lean: -3 });
+            robotState.dir = nextDir; robotState.heading = dirToHeading(nextDir);
+        } else if(type === 'right') {
+            const nextDir = (robotState.dir + 1) % 4;
+            await animateRobotTo({ targetDir: nextDir, bounce: 0.008, lean: 3 });
+            robotState.dir = nextDir; robotState.heading = dirToHeading(nextDir);
+        }
+        updateSensorHud();
+        checkWin();
+    }
+
+    function checkWall(relativeDir = 'ahead') {
+        const checkDir = getRelativeDir(relativeDir);
+        const vector = getDirectionVector(checkDir);
+        const nx = robotState.x + vector.dx, nz = robotState.z + vector.dz;
+        return (nx < 0 || nx >= size || nz < 0 || nz >= size || maze[nz][nx] === 1);
+    }
+
+    function checkWin() {
+        if(Math.round(robotState.fx) === size - 1 && Math.round(robotState.fz) === size - 1) {
+            document.getElementById('status').textContent = "?? ?META ALCANZADA!";
+            running = false;
+            stopMotors();
+        }
+    }
+
+    function getRunning() { return running; }
+
+    async function step() {
+        if(currentMode === 'advanced') {
+            simulateAdvancedPhysics(ADVANCED_STEP_MS);
+            await new Promise(r => setTimeout(r, ADVANCED_STEP_MS));
+        } else await new Promise(r => setTimeout(r, 50));
+    }
+
+    async function runCode() {
+        if(running) return;
+        running = true;
+        document.getElementById('status').textContent = "Estado: Ejecutando...";
+        const code = Blockly.JavaScript.workspaceToCode(workspace);
+        console.log("Generated code:", code);
+        try {
+            const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
+            const F = new AsyncFunction('robotAction', 'advancedRobotAction', 'setMotor', 'stopMotors', 'delaySim', 'checkWall', 'getUltrasonicDistance', 'step', 'getRunning', code);
+            await F(robotAction, advancedRobotAction, setMotor, stopMotors, delaySim, checkWall, getUltrasonicDistance, step, getRunning);
+        } catch (e) {
+            console.error(e);
+            document.getElementById('status').textContent = "Error: " + e.message;
+            running = false;
+            stopMotors();
+        }
+    }
+
+    function stopSim() {
+        running = false;
+        stopMotors();
+        document.getElementById('status').textContent = "Estado: Detenido";
+    }
+
+    function getDefaultProgramXml(mode = currentMode) {
+        if(mode === 'advanced') {
+            return `
+            <xml xmlns="https://developers.google.com/blockly/xml">
+                <block type="procedures_defnoreturn" x="20" y="20">
+                    <field name="NAME">centrar_robot</field>
+                    <statement name="STACK">
+                        <block type="controls_if">
+                            <mutation else="1"></mutation>
+                            <value name="IF0">
+                                <block type="logic_operation">
+                                    <field name="OP">AND</field>
+                                    <value name="A"><block type="logic_compare"><field name="OP">LT</field><value name="A"><block type="ultrasonic_left"></block></value><value name="B"><block type="math_number"><field name="NUM">7</field></block></value></block></value>
+                                    <value name="B"><block type="logic_compare"><field name="OP">LT</field><value name="A"><block type="ultrasonic_right"></block></value><value name="B"><block type="math_number"><field name="NUM">7</field></block></value></block></value>
+                                </block>
+                            </value>
+                            <statement name="DO0">
+                                <block type="controls_if">
+                                    <mutation elseif="1" else="1"></mutation>
+                                    <value name="IF0"><block type="logic_compare"><field name="OP">GT</field><value name="A"><block type="ultrasonic_left"></block></value><value name="B"><block type="math_arithmetic"><field name="OP">ADD</field><value name="A"><block type="ultrasonic_right"></block></value><value name="B"><block type="math_number"><field name="NUM">0.5</field></block></value></block></value></block></value>
+                                    <statement name="DO0"><block type="set_left_motor"><value name="SPEED"><block type="math_number"><field name="NUM">125</field></block></value><next><block type="set_right_motor"><value name="SPEED"><block type="math_number"><field name="NUM">175</field></block></value></block></next></block></statement>
+                                    <value name="IF1"><block type="logic_compare"><field name="OP">GT</field><value name="A"><block type="ultrasonic_right"></block></value><value name="B"><block type="math_arithmetic"><field name="OP">ADD</field><value name="A"><block type="ultrasonic_left"></block></value><value name="B"><block type="math_number"><field name="NUM">0.5</field></block></value></block></value></block></value>
+                                    <statement name="DO1"><block type="set_left_motor"><value name="SPEED"><block type="math_number"><field name="NUM">175</field></block></value><next><block type="set_right_motor"><value name="SPEED"><block type="math_number"><field name="NUM">125</field></block></value></block></next></block></statement>
+                                    <statement name="ELSE"><block type="set_left_motor"><value name="SPEED"><block type="math_number"><field name="NUM">170</field></block></value><next><block type="set_right_motor"><value name="SPEED"><block type="math_number"><field name="NUM">170</field></block></value></block></next></block></statement>
+                                </block>
+                            </statement>
+                            <statement name="ELSE"><block type="set_left_motor"><value name="SPEED"><block type="math_number"><field name="NUM">170</field></block></value><next><block type="set_right_motor"><value name="SPEED"><block type="math_number"><field name="NUM">170</field></block></value></block></next></block></statement>
+                        </block>
+                    </statement>
+                </block>
+                <block type="procedures_defnoreturn" x="20" y="360"><field name="NAME">girar_derecha_90</field><statement name="STACK"><block type="set_left_motor"><value name="SPEED"><block type="math_number"><field name="NUM">180</field></block></value><next><block type="set_right_motor"><value name="SPEED"><block type="math_number"><field name="NUM">-180</field></block></value><next><block type="wait_ms"><value name="MS"><block type="math_number"><field name="NUM">440</field></block></value><next><block type="stop_motors"></block></next></block></next></block></next></block></statement></block>
+                <block type="procedures_defnoreturn" x="20" y="560"><field name="NAME">girar_izquierda_90</field><statement name="STACK"><block type="set_left_motor"><value name="SPEED"><block type="math_number"><field name="NUM">-180</field></block></value><next><block type="set_right_motor"><value name="SPEED"><block type="math_number"><field name="NUM">180</field></block></value><next><block type="wait_ms"><value name="MS"><block type="math_number"><field name="NUM">440</field></block></value><next><block type="stop_motors"></block></next></block></next></block></next></block></statement></block>
+                <block type="arduino_setup" x="560" y="20"></block>
+                <block type="arduino_loop" x="560" y="120"><statement name="STACK"><block type="controls_if"><mutation elseif="2" else="1"></mutation><value name="IF0"><block type="logic_compare"><field name="OP">GT</field><value name="A"><block type="ultrasonic_right"></block></value><value name="B"><block type="math_number"><field name="NUM">7</field></block></value></block></value><statement name="DO0"><block type="procedures_callnoreturn"><mutation name="girar_derecha_90"></mutation><next><block type="wait_ms"><value name="MS"><block type="math_number"><field name="NUM">80</field></block></value></block></next></block></statement><value name="IF1"><block type="logic_compare"><field name="OP">GT</field><value name="A"><block type="ultrasonic_front"></block></value><value name="B"><block type="math_number"><field name="NUM">3.5</field></block></value></block></value><statement name="DO1"><block type="procedures_callnoreturn"><mutation name="centrar_robot"></mutation><next><block type="wait_ms"><value name="MS"><block type="math_number"><field name="NUM">120</field></block></value></block></next></block></statement><value name="IF2"><block type="logic_compare"><field name="OP">GT</field><value name="A"><block type="ultrasonic_left"></block></value><value name="B"><block type="math_number"><field name="NUM">7</field></block></value></block></value><statement name="DO2"><block type="procedures_callnoreturn"><mutation name="girar_izquierda_90"></mutation><next><block type="wait_ms"><value name="MS"><block type="math_number"><field name="NUM">80</field></block></value></block></next></block></statement><statement name="ELSE"><block type="procedures_callnoreturn"><mutation name="girar_izquierda_90"></mutation><next><block type="wait_ms"><value name="MS"><block type="math_number"><field name="NUM">80</field></block></value></block></next></block></statement></block></statement></block>
+            </xml>
+            `;
+        }
+
+        return `
+            <xml xmlns="https://developers.google.com/blockly/xml">
+                <block type="arduino_setup" x="20" y="20"></block>
+                <block type="arduino_loop" x="20" y="120">
+                    <statement name="STACK">
+                        <block type="controls_if"><mutation elseif="1" else="1"></mutation><value name="IF0"><block type="logic_negate"><value name="BOOL"><block type="sensor_wall_right"></block></value></block></value><statement name="DO0"><block type="turn_right"><next><block type="move_forward"></block></next></block></statement><value name="IF1"><block type="logic_negate"><value name="BOOL"><block type="sensor_wall_ahead"></block></value></block></value><statement name="DO1"><block type="move_forward"></block></statement><statement name="ELSE"><block type="turn_left"></block></statement></block>
+                    </statement>
+                </block>
+            </xml>
+        `;
+    }
+
+    function loadDefaultProgram(mode = currentMode) {
+        if(!window.workspace) return;
+        window.workspace.clear();
+        Blockly.Xml.domToWorkspace(Blockly.utils.xml.textToDom(getDefaultProgramXml(mode)), window.workspace);
+    }
+
+    function getWorkspaceXmlText() {
+        const xmlDom = Blockly.Xml.workspaceToDom(window.workspace);
+        return Blockly.Xml.domToPrettyText(xmlDom);
+    }
+
+    function loadWorkspaceXmlText(xmlText) {
+        const xmlDom = Blockly.utils.xml.textToDom(xmlText);
+        window.workspace.clear();
+        Blockly.Xml.domToWorkspace(xmlDom, window.workspace);
+    }
+
+    function getBlocksStorageKey(mode = currentMode) {
+        return `${BLOCKS_STORAGE_PREFIX}${mode}`;
+    }
+
+    function isStaleAdvancedDefaultXml(xmlText) {
+        if(!xmlText) return false;
+        const looksLikeBundledAdvanced = xmlText.includes('centrar_robot') &&
+            xmlText.includes('girar_derecha_90') &&
+            xmlText.includes('girar_izquierda_90');
+        if(!looksLikeBundledAdvanced) return false;
+        return xmlText.includes('<field name="NUM">60</field>') ||
+            xmlText.includes('<field name="NUM">160</field></block></value></block></value><statement name="DO1"') ||
+            xmlText.includes('<field name="NUM">16</field></block></value></block></value><statement name="DO1"') ||
+            xmlText.includes('<field name="NUM">8</field>') ||
+            xmlText.includes('<value name="IF0"><block type="logic_compare"><field name="OP">GT</field><value name="A"><block type="ultrasonic_front"></block></value>');
+    }
+
+    function saveBlocks(mode = currentMode) {
+        if(!window.workspace) return false;
+        const xmlText = getWorkspaceXmlText();
+        localStorage.setItem(getBlocksStorageKey(mode), xmlText);
+        document.getElementById('status').textContent = `Estado: Bloques guardados (${mode === 'advanced' ? 'Avanzado' : 'Básico'})`;
+        return true;
+    }
+
+    function loadBlocks(mode = currentMode, options = {}) {
+        if(!window.workspace) return false;
+        const xmlText = localStorage.getItem(getBlocksStorageKey(mode));
+        if(!xmlText) {
+            if(!options.silent) document.getElementById('status').textContent = "Estado: No hay bloques guardados para este modo";
+            return false;
+        }
+
+        if(options.silent && mode === 'advanced' && isStaleAdvancedDefaultXml(xmlText)) {
+            return false;
+        }
+
+        try {
+            loadWorkspaceXmlText(xmlText);
+            if(!options.silent) document.getElementById('status').textContent = `Estado: Bloques cargados (${mode === 'advanced' ? 'Avanzado' : 'Básico'})`;
+            return true;
+        } catch (error) {
+            console.error(error);
+            if(!options.silent) document.getElementById('status').textContent = "Error: XML guardado inválido";
+            return false;
+        }
+    }
+
+    function exportBlocksXml() {
+        if(!window.workspace) return;
+        const xmlText = getWorkspaceXmlText();
+        const blob = new Blob([xmlText], { type: 'application/xml' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+        link.href = url;
+        link.download = `robomaze-${currentMode}-${stamp}.xml`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        document.getElementById('status').textContent = "Estado: XML exportado";
+    }
+
+    function initBlockly() {
+        const workspace = Blockly.inject('blocklyDiv', {
+            toolbox: document.getElementById('toolbox-basic'),
+            scrollbars: true,
+            trashcan: true
+        });
+        
+        // Hacer las variables globales accesibles
+        window.workspace = workspace;
+        if(!loadBlocks('basic', { silent: true })) loadDefaultProgram('basic');
+    }
+
+    // Inicializar cuando el documento esté listo
+    document.addEventListener('DOMContentLoaded', function() {
+        initBlockly();
+        initRobotPlacement();
+        initOrthoCameraControls();
+        initFreeCameraPan();
+        generateMaze();
+    });
+</script>
+
+</body>
+</html>
