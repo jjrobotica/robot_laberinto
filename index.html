@@ -11,8 +11,18 @@
     <script src="https://unpkg.com/blockly/javascript_compressed.js"></script>
     <style>
         body { margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; overflow: hidden; display: flex; flex-direction: column; height: 100vh; background: #1a1a1a; }
-        #header { height: 50px; background: #2c3e50; color: white; display: flex; align-items: center; padding: 0 20px; gap: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.3); z-index: 10; }
-        #header h1 { font-size: 18px; margin: 0; color: #1abc9c; }
+        #header { height: 50px; background: #2c3e50; color: white; display: flex; align-items: center; justify-content: space-between; padding: 0 12px; gap: 12px; box-shadow: 0 2px 5px rgba(0,0,0,0.3); z-index: 120; }
+        #headerLeft { display: flex; align-items: center; gap: 10px; min-width: 0; }
+        #header h1 { font-size: 18px; margin: 0; color: #1abc9c; white-space: nowrap; }
+        #headerSub { font-size: 12px; opacity: 0.8; }
+        #menuToggle { display: none; width: 34px; height: 34px; border: 1px solid rgba(255,255,255,0.28); border-radius: 8px; background: rgba(255,255,255,0.07); color: #e2e8f0; font-size: 20px; line-height: 1; cursor: pointer; }
+        #topActions { display: flex; align-items: center; gap: 6px; }
+        .top-btn { background: #334155; border: 1px solid rgba(148,163,184,0.45); padding: 7px 10px; border-radius: 8px; color: #e2e8f0; font-weight: 700; font-size: 12px; cursor: pointer; }
+        .top-btn:hover { background: #475569; }
+        #panelSwitch { display: none; align-items: center; border: 1px solid rgba(16,185,129,0.7); border-radius: 10px; overflow: hidden; background: rgba(15,23,42,0.72); }
+        .panel-btn { border: none; background: transparent; color: #86efac; font-weight: 700; font-size: 12px; padding: 7px 12px; cursor: pointer; }
+        .panel-btn + .panel-btn { border-left: 1px solid rgba(16,185,129,0.45); }
+        .panel-btn.active { background: #14532d; color: #dcfce7; }
         #main { display: flex; flex: 1; overflow: hidden; }
         #blocklyArea { flex: 0 0 40%; position: relative; background: #f0f0f0; }
         #modeTabs { position: absolute; top: 0; left: 0; right: 0; height: 42px; display: flex; align-items: center; gap: 8px; padding: 6px 12px; background: #e5e7eb; border-bottom: 1px solid #cbd5e1; z-index: 5; }
@@ -37,20 +47,91 @@
         #sensorHud .hud-row { display: flex; justify-content: space-between; gap: 12px; padding: 2px 0; border-bottom: 1px solid rgba(148,163,184,0.16); }
         #sensorHud .hud-row:last-child { border-bottom: none; }
         #sensorHud .hud-value { color: #fde047; font-weight: bold; }
+        #interactionHint { position: absolute; left: 20px; bottom: 86px; max-width: min(420px, calc(100% - 40px)); background: rgba(15,23,42,0.82); color: #e2e8f0; padding: 8px 10px; border-radius: 8px; border: 1px solid rgba(148,163,184,0.35); font-size: 12px; line-height: 1.35; z-index: 100; pointer-events: none; }
+        #simContainer a-scene, #simContainer canvas { touch-action: none; }
+        #sideMenuOverlay { position: fixed; inset: 0; background: rgba(2,6,23,0.6); z-index: 140; opacity: 0; pointer-events: none; transition: opacity 0.2s ease; }
+        #sideMenu { position: fixed; top: 0; left: 0; bottom: 0; width: min(320px, 82vw); background: #0f172a; border-right: 1px solid rgba(148,163,184,0.35); transform: translateX(-104%); transition: transform 0.22s ease; z-index: 150; padding: 12px; box-shadow: 12px 0 28px rgba(0,0,0,0.35); }
+        #sideMenu h3 { margin: 8px 0 10px; color: #cbd5e1; font-size: 13px; letter-spacing: 0.04em; text-transform: uppercase; }
+        .side-grid { display: grid; gap: 8px; margin-bottom: 16px; }
+        .side-btn { width: 100%; text-align: left; background: #334155; border: 1px solid rgba(148,163,184,0.4); color: #e2e8f0; padding: 10px 11px; border-radius: 8px; font-weight: 700; cursor: pointer; }
+        .side-btn:hover { background: #475569; }
+        body.menu-open #sideMenuOverlay { opacity: 1; pointer-events: auto; }
+        body.menu-open #sideMenu { transform: translateX(0); }
+        @media (max-width: 900px) {
+            body { height: 100dvh; overflow: hidden; }
+            #header { height: 50px; padding: 0 8px; }
+            #menuToggle { display: inline-flex; align-items: center; justify-content: center; }
+            #header h1 { font-size: 15px; }
+            #headerSub { display: none; }
+            #topActions .top-btn { display: none; }
+            #panelSwitch { display: inline-flex; }
+            #main { flex-direction: column; }
+            #blocklyArea { flex: 1 1 auto; min-height: 0; border-top: 2px solid #34495e; border-left: none; }
+            #simContainer { flex: 1 1 auto; min-height: 0; border-left: none; }
+            #modeTabs { height: 36px; padding: 4px 8px; }
+            #blocklyDiv { top: 36px; }
+            .controls { left: 8px; right: 8px; bottom: 8px; gap: 6px; flex-wrap: wrap; }
+            .view-controls { top: 8px; left: 8px; gap: 6px; }
+            .btn { padding: 8px 9px; border-radius: 7px; font-size: 12px; }
+            .btn-mode { padding: 6px 10px; }
+            #status { top: 8px; right: 8px; max-width: 42%; padding: 7px 8px; font-size: 11px; }
+            #sensorHud { top: 48px; right: 8px; min-width: 138px; padding: 7px 8px; font-size: 10px; }
+            #interactionHint { left: 8px; right: 8px; bottom: 96px; max-width: none; padding: 7px 8px; font-size: 11px; }
+            body[data-mobile-panel="sim"] #blocklyArea { display: none; }
+            body[data-mobile-panel="sim"] #simContainer { display: block; }
+            body[data-mobile-panel="blocks"] #simContainer { display: none; }
+            body[data-mobile-panel="blocks"] #blocklyArea { display: block; }
+        }
+        @media (max-width: 520px) {
+            #blocklyArea { flex-basis: 48%; }
+            #simContainer { min-height: 280px; }
+            .controls { bottom: 6px; }
+            .btn { padding: 7px 8px; font-size: 11px; }
+            #sensorHud { display: none; }
+            #status { max-width: 52%; }
+            #interactionHint { bottom: 86px; }
+        }
     </style>
 </head>
 <body>
 
 <div id="header">
-    <h1>🤖 RoboMaze Pro</h1>
-    <span style="font-size: 12px; opacity: 0.8;">Simulador de Laberintos ABP</span>
+    <div id="headerLeft">
+        <button id="menuToggle" type="button" onclick="toggleSideMenu()">&#9776;</button>
+        <h1>&#129302; RoboMaze Pro</h1>
+        <span id="headerSub">Simulador de Laberintos ABP</span>
+    </div>
+    <div id="topActions">
+        <button class="top-btn" onclick="saveBlocks()">&#128190; Guardar</button>
+        <button class="top-btn" onclick="loadBlocks()">&#128194; Cargar</button>
+        <button class="top-btn" onclick="exportBlocksXml()">&#11015; XML</button>
+        <div id="panelSwitch">
+            <button class="panel-btn active" data-panel="sim" onclick="setMobilePanel('sim')">Simulador</button>
+            <button class="panel-btn" data-panel="blocks" onclick="setMobilePanel('blocks')">Bloques</button>
+        </div>
+    </div>
 </div>
+
+<div id="sideMenuOverlay" onclick="closeSideMenu()"></div>
+<aside id="sideMenu">
+    <h3>Acciones</h3>
+    <div class="side-grid">
+        <button class="side-btn" onclick="saveBlocks(); closeSideMenu()">&#128190; Guardar bloques</button>
+        <button class="side-btn" onclick="loadBlocks(); closeSideMenu()">&#128194; Cargar bloques</button>
+        <button class="side-btn" onclick="exportBlocksXml(); closeSideMenu()">&#11015; Exportar XML</button>
+    </div>
+    <h3>Modo</h3>
+    <div class="side-grid">
+        <button class="side-btn btn-mode active" data-mode="basic" onclick="setMode('basic'); closeSideMenu()">Básico</button>
+        <button class="side-btn btn-mode" data-mode="advanced" onclick="setMode('advanced'); closeSideMenu()">Avanzado</button>
+    </div>
+</aside>
 
 <div id="main">
     <div id="blocklyArea">
         <div id="modeTabs">
-            <button class="btn btn-mode active" onclick="setMode('basic')">Básico</button>
-            <button class="btn btn-mode" onclick="setMode('advanced')">Avanzado</button>
+            <button class="btn btn-mode active" data-mode="basic" onclick="setMode('basic')">Básico</button>
+            <button class="btn btn-mode" data-mode="advanced" onclick="setMode('advanced')">Avanzado</button>
         </div>
         <div id="blocklyDiv"></div>
     </div>
@@ -66,17 +147,15 @@
             <div class="hud-row"><span>Motor I</span><span class="hud-value" id="hud-motor-left">0</span></div>
             <div class="hud-row"><span>Motor D</span><span class="hud-value" id="hud-motor-right">0</span></div>
         </div>
+        <div id="interactionHint">Doble click/toque en el piso: mover robot. Toque/click en el robot: mostrar manejador de rotación; arrastra alrededor para orientar.</div>
         <div class="view-controls">
-            <button class="btn btn-view active" onclick="setView('ortho')">Hotéis Vista Aérea</button>
-            <button class="btn btn-view" onclick="setView('free')">👀 Vista Libre</button>
+            <button class="btn btn-view active" data-view="ortho" onclick="setView('ortho')">Vista Aérea</button>
+            <button class="btn btn-view" data-view="free" onclick="setView('free')">Vista Libre</button>
         </div>
         <div class="controls">
             <button class="btn btn-run" onclick="runCode()">▶ Ejecutar Programa</button>
             <button class="btn btn-stop" onclick="stopSim()">■ Detener</button>
             <button class="btn btn-maze" onclick="generateMaze()">🎲 Nuevo Laberinto</button>
-            <button class="btn btn-save" onclick="saveBlocks()">💾 Guardar</button>
-            <button class="btn btn-load" onclick="loadBlocks()">📂 Cargar</button>
-            <button class="btn btn-export" onclick="exportBlocksXml()">⬇ XML</button>
         </div>
         
         <a-scene embedded vr-mode-ui="enabled: false" cursor="rayOrigin: mouse">
@@ -114,6 +193,13 @@
             </a-entity>
 
             <!-- Cámara Global -->
+            <a-entity id="robot-rotation-gizmo" visible="false">
+                <a-torus radius="0.58" radius-tubular="0.015" rotation="90 0 0" material="color: #38bdf8; emissive: #0284c7; emissiveIntensity: 0.45; opacity: 0.9; transparent: true"></a-torus>
+                <a-sphere id="robot-rotation-handle" radius="0.08" color="#fde047" position="0.58 0.08 0"></a-sphere>
+                <a-cone id="robot-rotation-arrow" radius-bottom="0.07" radius-top="0" height="0.18" color="#f97316" rotation="0 0 -90" position="0.74 0.12 0"></a-cone>
+                <a-cone id="robot-rotation-arrow-mirror" radius-bottom="0.07" radius-top="0" height="0.18" color="#f97316" rotation="0 0 90" position="0.74 0.00 0"></a-cone>
+            </a-entity>
+
             <a-entity position="0 11 0" rotation="-90 0 0" camera="active: true; fov: 60; near: 0.1; far: 100" id="main-cam"></a-entity>
             
             <!-- Cámara Libre: rig orbital tipo OrbitControls.
@@ -488,22 +574,35 @@
     const placementGround = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
     const placementPoint = new THREE.Vector3();
     let isPlacingRobot = false;
+    let isRotatingRobot = false;
+    let rotationGizmoActive = false;
+    let currentMobilePanel = 'sim';
+    let lastTapForPlacement = { time: 0, x: 0, y: 0 };
+    const DOUBLE_TAP_MAX_MS = 320;
+    const DOUBLE_TAP_MAX_PX = 24;
 
     // --- FUNCIONALIDAD DE VISTAS ---
+    function syncViewButtons() {
+        document.querySelectorAll('.btn-view[data-view]').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.view === currentView);
+        });
+    }
+
+    function syncModeButtons() {
+        document.querySelectorAll('.btn-mode[data-mode]').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.mode === currentMode);
+        });
+    }
+
+    function syncPanelButtons() {
+        document.querySelectorAll('.panel-btn[data-panel]').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.panel === currentMobilePanel);
+        });
+    }
+
     function setView(view) {
         currentView = view;
-        
-        // Actualizar estado de botones
-        document.querySelectorAll('.btn-view').forEach(btn => btn.classList.remove('active'));
-        // Encontrar el botón que fue clickeado
-        const buttons = document.querySelectorAll('.btn-view');
-        for (let btn of buttons) {
-            if ((view === 'ortho' && btn.textContent.includes('Aérea')) || 
-                (view === 'free' && btn.textContent.includes('Libre'))) {
-                btn.classList.add('active');
-                break;
-            }
-        }
+        syncViewButtons();
         
         const mainCam = document.getElementById('main-cam');
         const freeCam = document.getElementById('free-camera');
@@ -528,13 +627,7 @@
 
     function setMode(mode) {
         currentMode = mode;
-        document.querySelectorAll('.btn-mode').forEach(btn => btn.classList.remove('active'));
-        document.querySelectorAll('.btn-mode').forEach(btn => {
-            if((mode === 'basic' && btn.textContent.includes('B?sico')) ||
-               (mode === 'advanced' && btn.textContent.includes('Avanzado'))) {
-                btn.classList.add('active');
-            }
-        });
+        syncModeButtons();
 
         if(window.workspace) {
             window.workspace.updateToolbox(document.getElementById(mode === 'advanced' ? 'toolbox-advanced' : 'toolbox-basic'));
@@ -555,7 +648,23 @@
 
         document.getElementById('status').textContent = mode === 'advanced'
             ? "Estado: Modo Avanzado - control diferencial de motores"
-            : "Estado: Modo B?sico";
+            : "Estado: Modo B&aacute;sico";
+    }
+
+    function setMobilePanel(panel) {
+        currentMobilePanel = panel === 'blocks' ? 'blocks' : 'sim';
+        document.body.setAttribute('data-mobile-panel', currentMobilePanel);
+        syncPanelButtons();
+        if(window.workspace) requestAnimationFrame(() => Blockly.svgResize(window.workspace));
+        closeSideMenu();
+    }
+
+    function toggleSideMenu() {
+        document.body.classList.toggle('menu-open');
+    }
+
+    function closeSideMenu() {
+        document.body.classList.remove('menu-open');
     }
 
     function generateMaze() {
@@ -646,6 +755,7 @@
             ? 270 - THREE.MathUtils.radToDeg(robotState.heading)
             : getRobotRotationY(robotState.dir);
         robot.setAttribute('rotation', `0 ${rotationY} 0`);
+        updateRotationGizmo();
         updateSensorHud();
         updateFreeCameraOrbit();
     }
@@ -766,6 +876,7 @@
         scene.addEventListener('contextmenu', event => event.preventDefault());
         scene.addEventListener('mousedown', event => {
             if(event.shiftKey) return;
+            if(isRotatingRobot || rotationGizmoActive) return;
             if(currentView !== 'free' || (event.button !== 0 && event.button !== 2)) return;
             event.preventDefault(); event.stopImmediatePropagation();
             isOrbiting = event.button === 0; isPanning = event.button === 2;
@@ -852,7 +963,7 @@
         let lastY = 0;
 
         scene.addEventListener('mousedown', event => {
-            if(event.shiftKey || currentView !== 'ortho' || event.button !== 0) return;
+            if(event.shiftKey || isRotatingRobot || rotationGizmoActive || currentView !== 'ortho' || event.button !== 0) return;
             event.preventDefault();
             event.stopImmediatePropagation();
             isPanning = true;
@@ -897,13 +1008,28 @@
         });
     }
 
-    function getGroundPointFromPointer(event) {
+    function getPointerClientPoint(event) {
+        if(event.touches && event.touches.length) return { clientX: event.touches[0].clientX, clientY: event.touches[0].clientY };
+        if(event.changedTouches && event.changedTouches.length) return { clientX: event.changedTouches[0].clientX, clientY: event.changedTouches[0].clientY };
+        return { clientX: event.clientX, clientY: event.clientY };
+    }
+
+    function setPlacementMouseFromPointer(event) {
         const scene = document.querySelector('a-scene');
         if(!scene || !scene.camera || !scene.canvas) return null;
 
         const rect = scene.canvas.getBoundingClientRect();
-        placementMouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-        placementMouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+        const pointer = getPointerClientPoint(event);
+        placementMouse.x = ((pointer.clientX - rect.left) / rect.width) * 2 - 1;
+        placementMouse.y = -((pointer.clientY - rect.top) / rect.height) * 2 + 1;
+        placementRaycaster.setFromCamera(placementMouse, scene.camera);
+        return scene;
+    }
+
+    function getGroundPointFromPointer(event) {
+        const scene = setPlacementMouseFromPointer(event);
+        if(!scene) return null;
+
         placementRaycaster.setFromCamera(placementMouse, scene.camera);
 
         const hit = placementRaycaster.ray.intersectPlane(placementGround, placementPoint);
@@ -964,9 +1090,153 @@
         updateRobotMesh();
     }
 
+    function getRobotCenterWorld() {
+        return getRobotWorldPosition();
+    }
+
+    function setRotationGizmoActive(active) {
+        rotationGizmoActive = active;
+        const gizmo = document.getElementById('robot-rotation-gizmo');
+        if(gizmo) gizmo.setAttribute('visible', active);
+        updateRotationGizmo();
+    }
+
+    function updateRotationGizmo() {
+        const gizmo = document.getElementById('robot-rotation-gizmo');
+        if(!gizmo) return;
+        const position = getRobotCenterWorld();
+        gizmo.setAttribute('position', `${position.x} 0.055 ${position.z}`);
+        const headingDeg = THREE.MathUtils.radToDeg(robotState.heading);
+        const handle = document.getElementById('robot-rotation-handle');
+        const arrow = document.getElementById('robot-rotation-arrow');
+        const arrowMirror = document.getElementById('robot-rotation-arrow-mirror');
+        const hx = Math.cos(robotState.heading);
+        const hz = Math.sin(robotState.heading);
+        if(handle) handle.setAttribute('position', `${hx * 0.58} 0.08 ${hz * 0.58}`);
+        if(arrow) {
+            const ax = hx * 0.74 + (-hz) * 0.13;
+            const az = hz * 0.74 + hx * 0.13;
+            arrow.setAttribute('position', `${ax} 0.08 ${az}`);
+            arrow.setAttribute('rotation', `0 ${90 - headingDeg} 90`);
+        }
+        if(arrowMirror) {
+            const mx = hx * 0.74 + hz * 0.13;
+            const mz = hz * 0.74 + (-hx) * 0.13;
+            arrowMirror.setAttribute('position', `${mx} 0.08 ${mz}`);
+            arrowMirror.setAttribute('rotation', `0 ${90 - headingDeg} -90`);
+        }
+    }
+
+    function pointerHitsEntity(event, entityId) {
+        const scene = setPlacementMouseFromPointer(event);
+        const entity = document.getElementById(entityId);
+        if(!scene || !entity) return false;
+        const hits = placementRaycaster.intersectObject(entity.object3D, true);
+        return hits.length > 0;
+    }
+
+    function pointerHitsRobot(event) {
+        return pointerHitsEntity(event, 'robot');
+    }
+
+    function pointerHitsRotationGizmo(event) {
+        return pointerHitsEntity(event, 'robot-rotation-gizmo');
+    }
+
+    function applyRobotRotationFromPointer(event) {
+        const point = getGroundPointFromPointer(event);
+        if(!point) return false;
+        rotateRobotTowardWorldPoint(point);
+        return true;
+    }
+
+    function isDoubleTapPlacement(event) {
+        const pointer = getPointerClientPoint(event);
+        const now = performance.now();
+        const dx = pointer.clientX - lastTapForPlacement.x;
+        const dy = pointer.clientY - lastTapForPlacement.y;
+        const isDoubleTap = now - lastTapForPlacement.time <= DOUBLE_TAP_MAX_MS &&
+            Math.hypot(dx, dy) <= DOUBLE_TAP_MAX_PX;
+        lastTapForPlacement = { time: now, x: pointer.clientX, y: pointer.clientY };
+        return isDoubleTap;
+    }
+
+    function placeRobotFromPointer(event) {
+        if(running) return false;
+        const point = getGroundPointFromPointer(event);
+        if(!point) return false;
+        const placed = placeRobotAtWorldPoint(point);
+        if(placed) {
+            setRotationGizmoActive(false);
+            document.getElementById('status').textContent = "Estado: Robot reposicionado";
+        } else {
+            document.getElementById('status').textContent = "Estado: Esa celda no estÃ¡ libre";
+        }
+        return placed;
+    }
+
     function initRobotPlacement() {
         const scene = document.querySelector('a-scene');
         if(!scene) return;
+
+        scene.addEventListener('dblclick', event => {
+            if(running || event.button !== 0 || pointerHitsRobot(event)) return;
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            placeRobotFromPointer(event);
+        }, true);
+
+        scene.addEventListener('pointerdown', event => {
+            if(running || event.button !== 0) return;
+
+            if(pointerHitsRobot(event)) {
+                event.preventDefault();
+                event.stopImmediatePropagation();
+                if(rotationGizmoActive) {
+                    isRotatingRobot = false;
+                    setRotationGizmoActive(false);
+                    document.getElementById('status').textContent = "Estado: Manejador de rotaciÃ³n oculto";
+                } else {
+                    setRotationGizmoActive(true);
+                    isRotatingRobot = true;
+                    applyRobotRotationFromPointer(event);
+                    document.getElementById('status').textContent = "Estado: RotaciÃ³n activa - arrastrÃ¡ alrededor del robot";
+                }
+                return;
+            }
+
+            if(rotationGizmoActive) {
+                event.preventDefault();
+                event.stopImmediatePropagation();
+                if(pointerHitsRotationGizmo(event)) {
+                    isRotatingRobot = applyRobotRotationFromPointer(event);
+                } else {
+                    isRotatingRobot = false;
+                    setRotationGizmoActive(false);
+                    document.getElementById('status').textContent = "Estado: Manejador de rotaciÃ³n oculto";
+                }
+                return;
+            }
+
+            if(isDoubleTapPlacement(event)) {
+                event.preventDefault();
+                event.stopImmediatePropagation();
+                placeRobotFromPointer(event);
+            }
+        }, true);
+
+        window.addEventListener('pointermove', event => {
+            if(!isRotatingRobot) return;
+            event.preventDefault();
+            applyRobotRotationFromPointer(event);
+        }, { passive: false });
+
+        window.addEventListener('pointerup', () => {
+            if(isRotatingRobot) {
+                isRotatingRobot = false;
+                document.getElementById('status').textContent = "Estado: OrientaciÃ³n del robot actualizada";
+            }
+        });
 
         scene.addEventListener('mousedown', event => {
             if(running || !event.shiftKey || event.button !== 0) return;
@@ -1436,10 +1706,26 @@
         // Hacer las variables globales accesibles
         window.workspace = workspace;
         if(!loadBlocks('basic', { silent: true })) loadDefaultProgram('basic');
+        window.addEventListener('resize', () => Blockly.svgResize(workspace));
+        requestAnimationFrame(() => Blockly.svgResize(workspace));
+    }
+
+    function initLayoutShell() {
+        setMobilePanel('sim');
+        syncModeButtons();
+        syncViewButtons();
+        window.addEventListener('keydown', event => {
+            if(event.key === 'Escape') closeSideMenu();
+        });
+        window.addEventListener('resize', () => {
+            if(window.innerWidth > 900) closeSideMenu();
+            if(window.workspace) requestAnimationFrame(() => Blockly.svgResize(window.workspace));
+        });
     }
 
     // Inicializar cuando el documento esté listo
     document.addEventListener('DOMContentLoaded', function() {
+        initLayoutShell();
         initBlockly();
         initRobotPlacement();
         initOrthoCameraControls();
