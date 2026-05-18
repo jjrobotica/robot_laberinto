@@ -561,6 +561,8 @@
         initialized: false
     };
     let orthoFollowRobot = false;
+    let orthoFollowOffsetX = 0;
+    let orthoFollowOffsetZ = 0;
     const AERIAL_CAMERA_FOV = 60;
     const AERIAL_VIEW_MARGIN = 1.07;
     const AERIAL_BOARD_SPAN = size + 1.05;
@@ -568,6 +570,7 @@
     const ORTHO_CAMERA_ZOOM_SPEED = 0.0015;
     const ORTHO_CAMERA_MIN_ZOOM = 0.72;
     const ORTHO_CAMERA_MAX_ZOOM = 5;
+    const ORTHO_FOLLOW_ZOOM_THRESHOLD = 1.06;
     const orthoCameraState = { ...ORTHO_CAMERA_DEFAULT };
     const BLOCKS_STORAGE_PREFIX = 'robomaze.blocks.';
     const placementRaycaster = new THREE.Raycaster();
@@ -1037,8 +1040,8 @@
         if(!mainCam) return;
         if(orthoFollowRobot) {
             const pos = getRobotWorldPosition();
-            orthoCameraState.x = pos.x;
-            orthoCameraState.z = pos.z;
+            orthoCameraState.x = pos.x + orthoFollowOffsetX;
+            orthoCameraState.z = pos.z + orthoFollowOffsetZ;
         }
         mainCam.setAttribute('camera', `active: ${currentView === 'ortho'}; fov: ${AERIAL_CAMERA_FOV}; near: 0.1; far: 100`);
         mainCam.setAttribute('position', `${orthoCameraState.x} ${getAerialCameraHeight()} ${orthoCameraState.z}`);
@@ -1051,7 +1054,20 @@
         orthoCameraState.z = ORTHO_CAMERA_DEFAULT.z;
         orthoCameraState.zoom = ORTHO_CAMERA_DEFAULT.zoom;
         orthoFollowRobot = false;
+        orthoFollowOffsetX = 0;
+        orthoFollowOffsetZ = 0;
         updateOrthoCamera();
+    }
+
+    function setOrthoFollowEnabled(enabled) {
+        const next = Boolean(enabled);
+        if(next === orthoFollowRobot) return;
+        orthoFollowRobot = next;
+        if(orthoFollowRobot) {
+            const pos = getRobotWorldPosition();
+            orthoFollowOffsetX = orthoCameraState.x - pos.x;
+            orthoFollowOffsetZ = orthoCameraState.z - pos.z;
+        }
     }
 
     function initOrthoCameraControls() {
@@ -1066,7 +1082,7 @@
             if(event.shiftKey || isRotatingRobot || rotationGizmoActive || currentView !== 'ortho' || event.button !== 0) return;
             event.preventDefault();
             event.stopImmediatePropagation();
-            orthoFollowRobot = false;
+            setOrthoFollowEnabled(false);
             isPanning = true;
             lastX = event.clientX;
             lastY = event.clientY;
@@ -1099,7 +1115,7 @@
                 ORTHO_CAMERA_MIN_ZOOM,
                 ORTHO_CAMERA_MAX_ZOOM
             );
-            orthoFollowRobot = true;
+            setOrthoFollowEnabled(orthoCameraState.zoom > ORTHO_FOLLOW_ZOOM_THRESHOLD);
             updateOrthoCamera();
         }, { passive: false, capture: true });
 
@@ -1132,7 +1148,7 @@
                 const panFactor = getAerialWorldUnitsPerPixel();
                 orthoCameraState.x -= deltaX * panFactor;
                 orthoCameraState.z -= deltaY * panFactor;
-                orthoFollowRobot = false;
+                setOrthoFollowEnabled(false);
                 updateOrthoCamera();
                 event.preventDefault();
                 return;
@@ -1151,12 +1167,13 @@
                 ORTHO_CAMERA_MIN_ZOOM,
                 ORTHO_CAMERA_MAX_ZOOM
             );
-            orthoFollowRobot = true;
+            setOrthoFollowEnabled(orthoCameraState.zoom > ORTHO_FOLLOW_ZOOM_THRESHOLD);
 
-            // Two-finger pan
+            // Two-finger pan (si panea, se prioriza control manual)
             const panFactor = getAerialWorldUnitsPerPixel();
             orthoCameraState.x -= deltaX * panFactor;
             orthoCameraState.z -= deltaY * panFactor;
+            if(Math.abs(deltaX) + Math.abs(deltaY) > 0.6) setOrthoFollowEnabled(false);
 
             touchGesture.lastDistance = distance;
             touchGesture.lastCenterX = center.x;
