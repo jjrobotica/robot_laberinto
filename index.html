@@ -11,45 +11,188 @@
     <script src="https://unpkg.com/blockly/javascript_compressed.js"></script>
     <style>
         body { margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; overflow: hidden; display: flex; flex-direction: column; height: 100vh; background: #1a1a1a; }
-        #header { height: 50px; background: #2c3e50; color: white; display: flex; align-items: center; justify-content: space-between; padding: 0 12px; gap: 12px; box-shadow: 0 2px 5px rgba(0,0,0,0.3); z-index: 120; }
+        #header { height: 50px; background: #0988af; color: #ffffff; display: flex; align-items: center; justify-content: space-between; padding: 0 12px; gap: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.22); z-index: 120; }
         #headerLeft { display: flex; align-items: center; gap: 10px; min-width: 0; }
-        #header h1 { font-size: 18px; margin: 0; color: #1abc9c; white-space: nowrap; }
-        #headerSub { font-size: 12px; opacity: 0.8; }
-        #menuToggle { display: none; width: 34px; height: 34px; border: 1px solid rgba(255,255,255,0.28); border-radius: 8px; background: rgba(255,255,255,0.07); color: #e2e8f0; font-size: 20px; line-height: 1; cursor: pointer; }
+        #header h1 { font-size: 18px; margin: 0; color: #ffffff; white-space: nowrap; }
+        #headerSub { font-size: 12px; opacity: 0.92; color: #def4ff; }
+        #menuToggle { display: none; width: 34px; height: 34px; border: 1px solid rgba(255,255,255,0.35); border-radius: 8px; background: rgba(255,255,255,0.12); color: #ffffff; font-size: 20px; line-height: 1; cursor: pointer; }
         #topActions { display: flex; align-items: center; gap: 6px; }
-        .top-btn { background: #334155; border: 1px solid rgba(148,163,184,0.45); padding: 7px 10px; border-radius: 8px; color: #e2e8f0; font-weight: 700; font-size: 12px; cursor: pointer; }
-        .top-btn:hover { background: #475569; }
-        #panelSwitch { display: none; align-items: center; border: 1px solid rgba(16,185,129,0.7); border-radius: 10px; overflow: hidden; background: rgba(15,23,42,0.72); }
-        .panel-btn { border: none; background: transparent; color: #86efac; font-weight: 700; font-size: 12px; padding: 7px 12px; cursor: pointer; }
-        .panel-btn + .panel-btn { border-left: 1px solid rgba(16,185,129,0.45); }
-        .panel-btn.active { background: #14532d; color: #dcfce7; }
+        .top-btn { background: #017fa5; border: 1px solid rgba(255,255,255,0.28); padding: 7px 10px; border-radius: 8px; color: #ffffff; font-weight: 700; font-size: 12px; cursor: pointer; }
+        .top-btn:hover { background: #006280; }
+        #panelSwitch { display: inline-flex; align-items: center; border: 1px solid rgba(57,195,220,0.75); border-radius: 10px; overflow: hidden; background: rgba(0,98,128,0.18); }
+        .panel-btn { border: none; background: transparent; color: #def4ff; font-weight: 700; font-size: 12px; padding: 7px 12px; cursor: pointer; }
+        .panel-btn + .panel-btn { border-left: 1px solid rgba(57,195,220,0.35); }
+        .panel-btn.active { background: #1fb5e2; color: #ffffff; }
         #main { display: flex; flex: 1; overflow: hidden; }
-        #blocklyArea { flex: 0 0 40%; position: relative; background: #f0f0f0; }
-        #modeTabs { position: absolute; top: 0; left: 0; right: 0; height: 42px; display: flex; align-items: center; gap: 8px; padding: 6px 12px; background: #e5e7eb; border-bottom: 1px solid #cbd5e1; z-index: 5; }
+        #blocklyArea { flex: 0 0 40%; position: relative; background: #F5F7FA; }
+        #modeTabs { position: absolute; top: 0; left: 0; right: 0; height: 41px; display: flex; align-items: center; gap: 8px; padding: 0px 12px; background: #E8EDF5; border-bottom: 1px solid #cbd5e1; z-index: 5; }
+
+        /* Toolbox nuevo Blockly: categor?as */
+        .blocklyToolboxCategory {
+            padding: 15px 0px !important;
+            color: #2c3e50;
+            background: transparent !important;
+            border-radius: 0 !important;
+            outline: none !important;
+            box-shadow: none !important;
+        }
+        .blocklyToolboxCategory:hover {
+            background: rgba(31,181,226,0.10) !important;
+        }
+        .blocklyToolboxCategory.blocklyToolboxSelected,
+        .blocklyToolboxCategory.blocklyToolboxCategorySelected,
+        .blocklyToolboxCategory.blocklyActiveFocus,
+        .blocklyToolboxCategory.blocklyKeyboardSelected {
+            box-shadow: none !important;
+            outline: none !important;
+            color: #ffffff !important;
+        }
+
+        /* Selecci?n por categor?a (color pleno) */
+        .blocklyToolboxCategory[style*="border-left: 8px solid rgb(45, 167, 216)"].blocklyToolboxSelected,
+        .blocklyToolboxCategory[style*="border-left: 8px solid rgb(45, 167, 216)"].blocklyToolboxCategorySelected { background: #2DA7D8 !important; }
+
+        .blocklyToolboxCategory[style*="border-left: 8px solid rgb(91, 191, 106)"].blocklyToolboxSelected,
+        .blocklyToolboxCategory[style*="border-left: 8px solid rgb(91, 191, 106)"].blocklyToolboxCategorySelected { background: #5BBF6A !important; }
+
+        .blocklyToolboxCategory[style*="border-left: 8px solid rgb(79, 134, 181)"].blocklyToolboxSelected,
+        .blocklyToolboxCategory[style*="border-left: 8px solid rgb(79, 134, 181)"].blocklyToolboxCategorySelected { background: #4F86B5 !important; }
+
+        .blocklyToolboxCategory[style*="border-left: 8px solid rgb(0, 137, 183)"].blocklyToolboxSelected,
+        .blocklyToolboxCategory[style*="border-left: 8px solid rgb(0, 137, 183)"].blocklyToolboxCategorySelected { background: #0089b7 !important; }
+
+        .blocklyToolboxCategory[style*="border-left: 8px solid rgb(31, 181, 226)"].blocklyToolboxSelected,
+        .blocklyToolboxCategory[style*="border-left: 8px solid rgb(31, 181, 226)"].blocklyToolboxCategorySelected { background: #1fb5e2 !important; }
+
+        .blocklyToolboxCategory[style*="border-left: 8px solid rgb(240, 182, 72)"].blocklyToolboxSelected,
+        .blocklyToolboxCategory[style*="border-left: 8px solid rgb(240, 182, 72)"].blocklyToolboxCategorySelected { background: #f0b648 !important; color:#2c3e50 !important; }
+
+        .blocklyToolboxCategory[style*="border-left: 8px solid rgb(38, 169, 255)"].blocklyToolboxSelected,
+        .blocklyToolboxCategory[style*="border-left: 8px solid rgb(38, 169, 255)"].blocklyToolboxCategorySelected { background: #26a9ff !important; }
+
+        .blocklyToolboxCategory[style*="border-left: 8px solid rgb(0, 98, 128)"].blocklyToolboxSelected,
+        .blocklyToolboxCategory[style*="border-left: 8px solid rgb(0, 98, 128)"].blocklyToolboxCategorySelected { background: #006280 !important; }
+        .blocklyToolboxCategory:focus,
+        .blocklyToolboxCategory:focus-visible {
+            outline: none !important;
+            box-shadow: none !important;
+        }
+
+                
+        
+        /* Blockly legibilidad JJ: menos negrita + borde sutil entre bloques */
+        #blocklyDiv .blocklyText,
+        #blocklyDiv .blocklyHtmlInput,
+        #blocklyDiv .blocklyFieldText {
+            font-weight: 600 !important;
+            letter-spacing: 0.01em;
+        }
+
+        #blocklyDiv .blocklyPath {
+            stroke: rgba(9, 54, 74, 0.38) !important;
+            stroke-width: 1.15px !important;
+            stroke-linejoin: round;
+        }
+
+        #blocklyDiv .blocklyPathDark {
+            stroke: rgba(6, 41, 56, 0.45) !important;
+            stroke-width: 1.15px !important;
+        }
+
+/* Blockly selecci?n estilo JJ */
+        .blocklySelected > .blocklyPath {
+            stroke: #1fb5e2 !important;
+            stroke-width: 3px !important;
+            filter: drop-shadow(0 0 4px rgba(31,181,226,0.65));
+        }
+        .blocklySelected .blocklyPathLight {
+            stroke: #7be8ff !important;
+            stroke-width: 1.6px !important;
+            opacity: 0.95;
+        }
+        .blocklyInsertionMarker > .blocklyPath {
+            fill: #1fb5e2 !important;
+            fill-opacity: 0.22 !important;
+            stroke: #1fb5e2 !important;
+            stroke-width: 2px !important;
+        }
+
+        /* Blockly: campo editable (ej: nombre de funci?n) */
+        /* Editable fields default (n?meros, textos, etc.) */
+        .blocklyEditableField > rect,
+        .zelos-renderer.classic-theme .blocklyEditableField > rect {
+            fill: gainsboro !important;
+        }
+        .blocklyEditableField > text,
+        .blocklyEditableField .blocklyFieldText,
+        .zelos-renderer.classic-theme .blocklyEditableField > text,
+        .zelos-renderer.classic-theme .blocklyEditableField .blocklyFieldText {
+            fill: #2c3e50 !important;
+        }
+
+        
+        #blocklyDiv .blocklyFieldRect,
+        #blocklyDiv .blocklyDropdownRect {
+            fill: gainsboro !important;
+        }
+
+/* SOLO nombre de funci?n en bloques de procedimientos */
+        g.procedures_defnoreturn .blocklyEditableField > rect,
+        g.procedures_defreturn .blocklyEditableField > rect,
+        g.procedures_callnoreturn .blocklyEditableField > rect,
+        g.procedures_callreturn .blocklyEditableField > rect {
+            fill: #5a8da8 !important;
+        }
+        g.procedures_defnoreturn .blocklyEditableField > text,
+        g.procedures_defreturn .blocklyEditableField > text,
+        g.procedures_callnoreturn .blocklyEditableField > text,
+        g.procedures_callreturn .blocklyEditableField > text,
+        g.procedures_defnoreturn .blocklyEditableField .blocklyFieldText,
+        g.procedures_defreturn .blocklyEditableField .blocklyFieldText,
+        g.procedures_callnoreturn .blocklyEditableField .blocklyFieldText,
+        g.procedures_callreturn .blocklyEditableField .blocklyFieldText {
+            fill: #fdfeff !important;
+        }
+
         #blocklyDiv { position: absolute; top: 42px; left: 0; right: 0; bottom: 0; }
         #simContainer { flex: 1; position: relative; border-left: 2px solid #34495e; }
         .controls { position: absolute; bottom: 20px; left: 20px; display: flex; gap: 10px; z-index: 100; }
         .view-controls { position: absolute; top: 20px; left: 20px; display: flex; gap: 10px; z-index: 100; }
-        .btn { padding: 10px 15px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; transition: background 0.3s; color: white; }
-        .btn-run { background: #27ae60; } .btn-run:hover { background: #2ecc71; }
-        .btn-stop { background: #c0392b; } .btn-stop:hover { background: #e74c3c; }
-        .btn-maze { background: #2980b9; } .btn-maze:hover { background: #3498db; }
+        .btn { padding: 10px 15px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; transition: background 0.25s; color: #ffffff; }
+        .btn-run { background: #1D9E75; } .btn-run:hover { background: #188660; }
+        .btn-stop { background: #EF5350; } .btn-stop:hover { background: #e14542; }
+        .btn-maze { background: #017fa5; } .btn-maze:hover { background: #006280; }
+        .btn-edit { background: #5A8DB8; } .btn-edit:hover { background: #4b7ca6; }
+        .btn-edit.active { background: #F0B648; color: #2c3e50; box-shadow: 0 0 6px #F0B648; }
         .btn-save { background: #0f766e; } .btn-save:hover { background: #14b8a6; }
         .btn-load { background: #7c3aed; } .btn-load:hover { background: #8b5cf6; }
         .btn-export { background: #b45309; } .btn-export:hover { background: #d97706; }
-        .btn-view { background: #8e44ad; } .btn-view:hover { background: #9b59b6; }
-        .btn-view.active { background: #3498db; box-shadow: 0 0 5px #3498db; }
-        .btn-mode { background: #475569; padding: 7px 12px; font-size: 12px; }
-        .btn-mode.active { background: #1D9E75; box-shadow: 0 0 4px #1D9E75; }
+        .btn-view { background: #017fa5; } .btn-view:hover { background: #006280; }
+        .btn-view.active { background: #1fb5e2; box-shadow: 0 0 5px #1fb5e2; }
+        .btn-mode { background: #017fa5; padding: 7px 12px; font-size: 12px; color: #ffffff; }
+        .btn-mode.active { background: #39c3dc; box-shadow: 0 0 4px #39c3dc; color: #2c3e50; }
         #status { position: absolute; top: 60px; right: 20px; background: rgba(0,0,0,0.6); color: white; padding: 10px; border-radius: 5px; font-size: 14px; z-index: 100; }
         #sensorHud { position: absolute; top: 112px; right: 20px; min-width: 190px; background: rgba(15,23,42,0.86); color: #e2e8f0; padding: 10px 12px; border-radius: 8px; border: 1px solid rgba(148,163,184,0.35); font-family: 'Courier New', monospace; font-size: 12px; z-index: 100; box-shadow: 0 8px 20px rgba(0,0,0,0.25); }
         #sensorHud .hud-title { color: #1abc9c; font-weight: bold; margin-bottom: 6px; letter-spacing: .04em; }
         #sensorHud .hud-row { display: flex; justify-content: space-between; gap: 12px; padding: 2px 0; border-bottom: 1px solid rgba(148,163,184,0.16); }
         #sensorHud .hud-row:last-child { border-bottom: none; }
         #sensorHud .hud-value { color: #fde047; font-weight: bold; }
+        #variablesHud { position: absolute; top: 316px; right: 20px; min-width: 190px; max-width: 280px; background: rgba(15,23,42,0.86); color: #e2e8f0; padding: 10px 12px; border-radius: 8px; border: 1px solid rgba(236,72,153,0.42); font-family: 'Courier New', monospace; font-size: 12px; z-index: 100; box-shadow: 0 8px 20px rgba(0,0,0,0.25); }
+        #variablesHud .hud-title { color: #f472b6; font-weight: bold; margin-bottom: 6px; letter-spacing: .04em; }
+        #variablesHud .hud-row { display: flex; justify-content: space-between; gap: 12px; padding: 2px 0; border-bottom: 1px solid rgba(236,72,153,0.16); }
+        #variablesHud .hud-row:last-child { border-bottom: none; }
+        #variablesHud .hud-name { color: #e2e8f0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        #variablesHud .hud-type { color: #f9a8d4; opacity: 0.85; font-size: 10px; }
+        #variablesHud .hud-value { color: #fde047; font-weight: bold; text-align: right; max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         #interactionHint { position: absolute; left: 20px; bottom: 86px; max-width: min(420px, calc(100% - 40px)); background: rgba(15,23,42,0.82); color: #e2e8f0; padding: 8px 10px; border-radius: 8px; border: 1px solid rgba(148,163,184,0.35); font-size: 12px; line-height: 1.35; z-index: 100; pointer-events: none; }
         #simContainer a-scene { width: 100%; height: 100%; display: block; touch-action: none; }
         #simContainer canvas { width: 100% !important; height: 100% !important; display: block; touch-action: none; }
+        body[data-mobile-panel="sim"] #blocklyArea { display: none; }
+        body[data-mobile-panel="sim"] #simContainer { display: block; border-left: none; }
+        body[data-mobile-panel="blocks"] #simContainer { display: none; }
+        body[data-mobile-panel="blocks"] #blocklyArea { display: block; flex: 1 1 auto; }
+        body[data-mobile-panel="both"] #blocklyArea { display: block; flex: 0 0 40%; }
+        body[data-mobile-panel="both"] #simContainer { display: block; flex: 1; }
         #sideMenuOverlay { position: fixed; inset: 0; background: rgba(2,6,23,0.6); z-index: 140; opacity: 0; pointer-events: none; transition: opacity 0.2s ease; }
         #sideMenu { position: fixed; top: 0; left: 0; bottom: 0; width: min(320px, 82vw); background: #0f172a; border-right: 1px solid rgba(148,163,184,0.35); transform: translateX(-104%); transition: transform 0.22s ease; z-index: 150; padding: 12px; box-shadow: 12px 0 28px rgba(0,0,0,0.35); }
         #sideMenu h3 { margin: 8px 0 10px; color: #cbd5e1; font-size: 13px; letter-spacing: 0.04em; text-transform: uppercase; }
@@ -66,6 +209,7 @@
             #headerSub { display: none; }
             #topActions .top-btn { display: none; }
             #panelSwitch { display: inline-flex; }
+            .desktop-panel-only { display: none; }
             #main { flex-direction: column; }
             #blocklyArea { flex: 1 1 auto; min-height: 0; border-top: 2px solid #34495e; border-left: none; }
             #simContainer { flex: 1 1 auto; min-height: 0; border-left: none; }
@@ -77,6 +221,7 @@
             .btn-mode { padding: 6px 10px; }
             #status { top: 8px; right: 8px; max-width: 42%; padding: 7px 8px; font-size: 11px; }
             #sensorHud { top: 48px; right: 8px; min-width: 138px; padding: 7px 8px; font-size: 10px; }
+            #variablesHud { top: 204px; right: 8px; min-width: 138px; max-width: 190px; padding: 7px 8px; font-size: 10px; }
             #interactionHint { left: 8px; right: 8px; bottom: 96px; max-width: none; padding: 7px 8px; font-size: 11px; }
             body[data-mobile-panel="sim"] #blocklyArea { display: none; }
             body[data-mobile-panel="sim"] #simContainer { display: block; }
@@ -89,6 +234,7 @@
             .controls { bottom: 6px; }
             .btn { padding: 7px 8px; font-size: 11px; }
             #sensorHud { display: none; }
+            #variablesHud { display: none; }
             #status { max-width: 52%; }
             #interactionHint { bottom: 86px; }
         }
@@ -107,8 +253,9 @@
         <button class="top-btn" onclick="loadBlocks()">&#128194; Cargar</button>
         <button class="top-btn" onclick="exportBlocksXml()">&#11015; XML</button>
         <div id="panelSwitch">
-            <button class="panel-btn active" data-panel="sim" onclick="setMobilePanel('sim')">Simulador</button>
+            <button class="panel-btn desktop-panel-only active" data-panel="both" onclick="setMobilePanel('both')">Ambos</button>
             <button class="panel-btn" data-panel="blocks" onclick="setMobilePanel('blocks')">Bloques</button>
+            <button class="panel-btn" data-panel="sim" onclick="setMobilePanel('sim')">Simulador</button>
         </div>
     </div>
 </div>
@@ -148,6 +295,12 @@
             <div class="hud-row"><span>Motor I</span><span class="hud-value" id="hud-motor-left">0</span></div>
             <div class="hud-row"><span>Motor D</span><span class="hud-value" id="hud-motor-right">0</span></div>
         </div>
+        <div id="variablesHud">
+            <div class="hud-title">VARIABLES</div>
+            <div id="variablesList">
+                <div class="hud-row" style="opacity: 0.62; font-style: italic; justify-content: center;">Sin variables</div>
+            </div>
+        </div>
         <div id="interactionHint">Doble click/toque en el piso: mover robot. Toque/click en el robot: mostrar manejador de rotación; arrastra alrededor para orientar.</div>
         <div class="view-controls">
             <button class="btn btn-view active" data-view="ortho" onclick="setView('ortho')">Vista Aérea</button>
@@ -157,9 +310,10 @@
             <button class="btn btn-run" onclick="runCode()">▶ Ejecutar Programa</button>
             <button class="btn btn-stop" onclick="stopSim()">■ Detener</button>
             <button class="btn btn-maze" onclick="generateMaze()">🎲 Nuevo Laberinto</button>
+            <button class="btn btn-edit" id="mazeEditToggle" onclick="toggleMazeEditMode()">✏️ Editar Laberinto</button>
         </div>
         
-        <a-scene embedded vr-mode-ui="enabled: false" cursor="rayOrigin: mouse">
+        <a-scene embedded vr-mode-ui="enabled: false" cursor="rayOrigin: mouse" raycaster="objects: [data-raycastable]">
             <!-- Entorno -->
             <a-sky color="#0f172a"></a-sky>
             <a-plane position="0 -0.02 0" rotation="-90 0 0" width="24" height="24" color="#111827"></a-plane>
@@ -179,7 +333,7 @@
             </a-entity>
 
             <!-- Robot -->
-            <a-entity id="robot" position="0 0 0">
+            <a-entity id="robot" data-raycastable position="0 0 0">
                 <a-box width="0.42" height="0.16" depth="0.54" color="#1D9E75" position="0 0.16 0" material="roughness: 0.45; metalness: 0.05"></a-box>
                 <a-box width="0.30" height="0.04" depth="0.30" color="#0F6E56" position="0 0.27 0.02"></a-box>
                 <a-box width="0.36" height="0.045" depth="0.08" color="#f0c040" position="0 0.12 -0.33"></a-box>
@@ -194,7 +348,7 @@
             </a-entity>
 
             <!-- Cámara Global -->
-            <a-entity id="robot-rotation-gizmo" visible="false">
+            <a-entity id="robot-rotation-gizmo" data-raycastable visible="false">
                 <a-torus radius="0.58" radius-tubular="0.015" rotation="90 0 0" material="color: #38bdf8; emissive: #0284c7; emissiveIntensity: 0.45; opacity: 0.9; transparent: true"></a-torus>
                 <a-sphere id="robot-rotation-handle" radius="0.08" color="#fde047" position="0.58 0.08 0"></a-sphere>
                 <a-cone id="robot-rotation-arrow" radius-bottom="0.07" radius-top="0" height="0.18" color="#f97316" rotation="0 0 -90" position="0.74 0.12 0"></a-cone>
@@ -218,60 +372,236 @@
 </div>
 
 <xml id="toolbox-basic" style="display: none">
-    <category name="Movimiento" colour="#5b67a5">
+    <category name="Movimiento" colour="#2DA7D8">
         <block type="move_forward"></block>
         <block type="turn_left"></block>
         <block type="turn_right"></block>
     </category>
-    <category name="Sensores" colour="#5ba55b">
+    <category name="Sensores" colour="#5BBF6A">
         <block type="sensor_wall_ahead"></block>
         <block type="sensor_wall_left"></block>
         <block type="sensor_wall_right"></block>
     </category>
-    <category name="Lógica" colour="#5b80a5">
+    <category name="Decisiones" colour="#4F86B5">
         <block type="controls_if"></block>
+    </category>
+    <category name="Lógica" colour="#0089b7">
         <block type="logic_compare"></block>
         <block type="logic_operation"></block>
         <block type="logic_negate"></block>
         <block type="logic_boolean"></block>
     </category>
+    <category name="Ciclos" colour="#1fb5e2">
+        <block type="controls_repeat_ext">
+            <value name="TIMES"><block type="math_number"><field name="NUM">3</field></block></value>
+        </block>
+        <block type="controls_whileUntil"><field name="MODE">WHILE</field></block>
+        <block type="controls_whileUntil"><field name="MODE">UNTIL</field></block>
+        <block type="controls_for">
+            <field name="VAR">i</field>
+            <value name="FROM"><block type="math_number"><field name="NUM">1</field></block></value>
+            <value name="TO"><block type="math_number"><field name="NUM">5</field></block></value>
+            <value name="BY"><block type="math_number"><field name="NUM">1</field></block></value>
+        </block>
+    </category>
+    <category name="Variables" colour="#f0b648" custom="TYPED_VARIABLES"></category>
 </xml>
 
 <xml id="toolbox-advanced" style="display: none">
-    <category name="Movimiento" colour="#5b67a5">
-        <block type="set_left_motor"></block>
-        <block type="set_right_motor"></block>
+    <category name="Movimiento" colour="#2DA7D8">
+        <block type="set_motor">
+            <field name="SIDE">left</field>
+            <value name="SPEED"><block type="math_number"><field name="NUM">180</field></block></value>
+        </block>
         <block type="stop_motors"></block>
-        <block type="wait_ms"></block>
     </category>
-    <category name="Ultrasonidos" colour="#5ba55b">
+    <category name="Ultrasonidos" colour="#5BBF6A">
         <block type="ultrasonic_front"></block>
         <block type="ultrasonic_left"></block>
         <block type="ultrasonic_right"></block>
     </category>
-    <category name="Lógica" colour="#5b80a5">
+    <category name="Decisiones" colour="#4F86B5">
         <block type="controls_if"></block>
+        <block type="wait_ms">
+            <value name="MS"><block type="math_number"><field name="NUM">100</field></block></value>
+        </block>
+    </category>
+    <category name="Lógica" colour="#0089b7">
         <block type="logic_compare"></block>
         <block type="logic_operation"></block>
         <block type="logic_negate"></block>
         <block type="logic_boolean"></block>
     </category>
-    <category name="Matemática" colour="#5b67a5">
+    <category name="Ciclos" colour="#1fb5e2">
+        <block type="controls_repeat_ext">
+            <value name="TIMES"><block type="math_number"><field name="NUM">3</field></block></value>
+        </block>
+        <block type="controls_whileUntil"><field name="MODE">WHILE</field></block>
+        <block type="controls_whileUntil"><field name="MODE">UNTIL</field></block>
+        <block type="controls_for">
+            <field name="VAR">i</field>
+            <value name="FROM"><block type="math_number"><field name="NUM">1</field></block></value>
+            <value name="TO"><block type="math_number"><field name="NUM">5</field></block></value>
+            <value name="BY"><block type="math_number"><field name="NUM">1</field></block></value>
+        </block>
+    </category>
+    <category name="Matemática" colour="#26a9ff">
         <block type="math_number"></block>
         <block type="math_arithmetic"></block>
         <block type="math_single"></block>
         <block type="math_number_property"></block>
     </category>
-    <category name="Funciones" colour="#995ba5" custom="PROCEDURE"></category>
+    <category name="Variables" colour="#f0b648" custom="TYPED_VARIABLES"></category>
+    <category name="Funciones" colour="#006280" custom="PROCEDURE"></category>
 </xml>
 
 <script>
+    function localizeBlocklyForEducation() {
+        if(!window.Blockly || !Blockly.Msg) return;
+
+        Object.assign(Blockly.Msg, {
+            ADD_COMMENT: 'Agregar comentario',
+            CHANGE_VALUE_TITLE: 'Cambiar valor:',
+            CLEAN_UP: 'Ordenar bloques',
+            COLLAPSE_ALL: 'Contraer bloques',
+            COLLAPSE_BLOCK: 'Contraer bloque',
+            DELETE_ALL_BLOCKS: 'Borrar los %1 bloques',
+            DELETE_BLOCK: 'Borrar bloque',
+            DISABLE_BLOCK: 'Desactivar bloque',
+            DUPLICATE_BLOCK: 'Duplicar bloque',
+            ENABLE_BLOCK: 'Activar bloque',
+            EXPAND_ALL: 'Expandir bloques',
+            EXPAND_BLOCK: 'Expandir bloque',
+            EXTERNAL_INPUTS: 'Entradas externas',
+            HELP: 'Ayuda',
+            INLINE_INPUTS: 'Entradas en línea',
+            REMOVE_COMMENT: 'Quitar comentario',
+            RENAME_VARIABLE: 'Renombrar variable...',
+            UNDO: 'Deshacer',
+            REDO: 'Rehacer',
+
+            CONTROLS_IF_MSG_IF: 'si',
+            CONTROLS_IF_MSG_THEN: 'entonces',
+            CONTROLS_IF_MSG_ELSEIF: 'sino si',
+            CONTROLS_IF_MSG_ELSE: 'sino',
+            CONTROLS_IF_TOOLTIP_1: 'Si la condición es verdadera, ejecuta los bloques internos.',
+            CONTROLS_IF_TOOLTIP_2: 'Si la condición es verdadera, ejecuta el primer grupo. Si no, ejecuta el segundo.',
+            CONTROLS_IF_TOOLTIP_3: 'Si la primera condición es falsa, prueba otra condición.',
+            CONTROLS_IF_TOOLTIP_4: 'Si ninguna condición es verdadera, ejecuta el bloque final.',
+            CONTROLS_REPEAT_TITLE: 'repetir %1 veces',
+            CONTROLS_REPEAT_INPUT_DO: 'hacer',
+            CONTROLS_REPEAT_TOOLTIP: 'Repite los bloques una cantidad fija de veces.',
+            CONTROLS_WHILEUNTIL_INPUT_DO: 'hacer',
+            CONTROLS_WHILEUNTIL_OPERATOR_WHILE: 'repetir mientras',
+            CONTROLS_WHILEUNTIL_OPERATOR_UNTIL: 'repetir hasta',
+            CONTROLS_WHILEUNTIL_TOOLTIP_WHILE: 'Mientras la condición sea verdadera, repite los bloques.',
+            CONTROLS_WHILEUNTIL_TOOLTIP_UNTIL: 'Repite los bloques hasta que la condición sea verdadera. En código se traduce como mientras NO se cumpla.',
+            CONTROLS_FOR_TITLE: 'contar con %1 desde %2 hasta %3 de a %4',
+            CONTROLS_FOR_INPUT_DO: 'hacer',
+            CONTROLS_FOR_TOOLTIP: 'Cuenta desde un valor inicial hasta uno final y repite los bloques en cada paso.',
+            CONTROLS_FLOW_STATEMENTS_OPERATOR_BREAK: 'salir del bucle',
+            CONTROLS_FLOW_STATEMENTS_OPERATOR_CONTINUE: 'continuar con la siguiente vuelta',
+            CONTROLS_FLOW_STATEMENTS_TOOLTIP_BREAK: 'Sale del bucle actual.',
+            CONTROLS_FLOW_STATEMENTS_TOOLTIP_CONTINUE: 'Salta el resto de esta vuelta y continúa con la siguiente.',
+
+            LOGIC_BOOLEAN_TRUE: 'verdadero',
+            LOGIC_BOOLEAN_FALSE: 'falso',
+            LOGIC_NEGATE_TITLE: 'no %1',
+            LOGIC_OPERATION_AND: 'y',
+            LOGIC_OPERATION_OR: 'o',
+            LOGIC_COMPARE_TOOLTIP_EQ: 'Devuelve verdadero si ambos valores son iguales.',
+            LOGIC_COMPARE_TOOLTIP_NEQ: 'Devuelve verdadero si ambos valores son distintos.',
+            LOGIC_COMPARE_TOOLTIP_LT: 'Devuelve verdadero si el primer valor es menor que el segundo.',
+            LOGIC_COMPARE_TOOLTIP_LTE: 'Devuelve verdadero si el primer valor es menor o igual que el segundo.',
+            LOGIC_COMPARE_TOOLTIP_GT: 'Devuelve verdadero si el primer valor es mayor que el segundo.',
+            LOGIC_COMPARE_TOOLTIP_GTE: 'Devuelve verdadero si el primer valor es mayor o igual que el segundo.',
+
+            MATH_NUMBER_TOOLTIP: 'Un número.',
+            MATH_ARITHMETIC_TOOLTIP_ADD: 'Devuelve la suma de dos números.',
+            MATH_ARITHMETIC_TOOLTIP_MINUS: 'Devuelve la resta de dos números.',
+            MATH_ARITHMETIC_TOOLTIP_MULTIPLY: 'Devuelve el producto de dos números.',
+            MATH_ARITHMETIC_TOOLTIP_DIVIDE: 'Devuelve la división de dos números.',
+            MATH_ARITHMETIC_TOOLTIP_POWER: 'Devuelve el primer número elevado al segundo.',
+            MATH_SINGLE_TOOLTIP_ROOT: 'Devuelve la raíz cuadrada de un número.',
+            MATH_SINGLE_TOOLTIP_ABS: 'Devuelve el valor absoluto de un número.',
+            MATH_SINGLE_TOOLTIP_NEG: 'Devuelve el número cambiado de signo.',
+            MATH_SINGLE_TOOLTIP_LN: 'Devuelve el logaritmo natural de un número.',
+            MATH_SINGLE_TOOLTIP_LOG10: 'Devuelve el logaritmo base 10 de un número.',
+            MATH_SINGLE_TOOLTIP_EXP: 'Devuelve e elevado a una potencia.',
+            MATH_SINGLE_TOOLTIP_POW10: 'Devuelve 10 elevado a una potencia.',
+
+            MATH_ARITHMETIC_ADD: '+',
+            MATH_ARITHMETIC_MINUS: '-',
+            MATH_ARITHMETIC_MULTIPLY: '\u00D7',
+            MATH_ARITHMETIC_DIVIDE: '\u00F7',
+            MATH_ARITHMETIC_POWER: '^',
+            MATH_SINGLE_OP_ROOT: 'raíz cuadrada',
+            MATH_SINGLE_OP_ABSOLUTE: 'valor absoluto',
+            MATH_SINGLE_OP_NEG: 'negativo',
+            MATH_SINGLE_OP_LN: 'ln',
+            MATH_SINGLE_OP_LOG10: 'log10',
+            MATH_SINGLE_OP_EXP: 'e^',
+            MATH_SINGLE_OP_POW10: '10^',
+            MATH_IS_EVEN: 'es par',
+            MATH_IS_ODD: 'es impar',
+            MATH_IS_PRIME: 'es primo',
+            MATH_IS_WHOLE: 'es entero',
+            MATH_IS_POSITIVE: 'es positivo',
+            MATH_IS_NEGATIVE: 'es negativo',
+            MATH_IS_DIVISIBLE_BY: 'es divisible por',
+
+
+            VARIABLES_DEFAULT_NAME: 'elemento',
+            VARIABLES_CREATE_BUTTON: 'Crear variable...',
+            VARIABLES_SET: 'guardar %2 en %1',
+            VARIABLES_GET_TOOLTIP: 'Devuelve el valor de esta variable.',
+            VARIABLES_SET_TOOLTIP: 'Guarda un valor en esta variable.',
+            VARIABLES_SET_CREATE_GET: 'Crear bloque para leer %1',
+            VARIABLES_GET_CREATE_SET: 'Crear bloque para guardar %1',
+            VARIABLES_RENAME_BUTTON: 'Renombrar variable...',
+            VARIABLES_RENAME_VARIABLE: 'Renombrar variable:',
+            VARIABLES_DELETE_BUTTON: 'Borrar variable %1',
+            VARIABLES_DELETE_VARIABLE: 'Borrar la variable %1',
+            VARIABLES_DELETE_VARIABLE_CONFIRMATION: '¿Borrar %1 usos de la variable %2?',
+            NEW_VARIABLE: 'Crear variable...',
+            NEW_VARIABLE_TITLE: 'Nombre de la nueva variable:',
+            RENAME_VARIABLE_TITLE: 'Renombrar todas las variables %1 a:',
+            VARIABLE_ALREADY_EXISTS: 'Ya existe una variable llamada %1.',
+            VARIABLE_ALREADY_EXISTS_FOR_ANOTHER_TYPE: 'Ya existe una variable llamada %1 para otro tipo: %2.',
+            TYPED_VARIABLE_MODAL_TITLE: 'Crear variable con tipo',
+            TYPED_VARIABLE_NAME_PROMPT: 'Nombre de la nueva variable',
+            TEXT_TEXT_TOOLTIP: 'Un texto.',
+
+            PROCEDURES_DEFNORETURN_TITLE: 'definir',
+            PROCEDURES_DEFNORETURN_PROCEDURE: 'hacer_algo',
+            PROCEDURES_DEFNORETURN_DO: 'hacer',
+            PROCEDURES_DEFNORETURN_TOOLTIP: 'Crea una función sin resultado.',
+            PROCEDURES_DEFRETURN_TITLE: 'definir',
+            PROCEDURES_DEFRETURN_PROCEDURE: 'calcular_algo',
+            PROCEDURES_DEFRETURN_DO: 'hacer',
+            PROCEDURES_DEFRETURN_RETURN: 'devolver',
+            PROCEDURES_DEFRETURN_TOOLTIP: 'Crea una función que devuelve un resultado.',
+            PROCEDURES_CALLNORETURN_CALL: 'ejecutar',
+            PROCEDURES_CALLNORETURN_TOOLTIP: 'Ejecuta la función creada por el usuario.',
+            PROCEDURES_CALLRETURN_TOOLTIP: 'Ejecuta la función creada por el usuario y usa su resultado.',
+            PROCEDURES_BEFORE_PARAMS: 'con',
+            PROCEDURES_CREATE_DO: 'Crear llamada a %1',
+            PROCEDURES_HIGHLIGHT_DEF: 'Resaltar definición de la función',
+            PROCEDURES_IFRETURN_TOOLTIP: 'Si la condición es verdadera, devuelve este valor.',
+            PROCEDURES_IFRETURN_WARNING: 'Atención: este bloque sólo se puede usar dentro de una función que devuelve valor.',
+            PROCEDURES_MUTATORCONTAINER_TITLE: 'parámetros',
+            PROCEDURES_MUTATORCONTAINER_TOOLTIP: 'Agrega, quita o reordena parámetros de esta función.',
+            PROCEDURES_MUTATORARG_TITLE: 'parámetro:',
+            PROCEDURES_MUTATORARG_TOOLTIP: 'Agrega un parámetro a la función.'
+        });
+    }
+
     // --- CONFIGURACIÓN DE BLOQUES PERSONALIZADOS ---
     Blockly.Blocks['arduino_setup'] = {
         init: function() {
             this.appendDummyInput().appendField("⚙️ AL INICIO (Setup)");
             this.appendStatementInput("STACK").setCheck(null);
-            this.setColour(230);
+            this.setColour('#58b0fd');
             this.setTooltip("Se ejecuta una vez.");
             this.setDeletable(false);
         }
@@ -281,9 +611,23 @@
         init: function() {
             this.appendDummyInput().appendField("🔄 REPETIR POR SIEMPRE (Loop)");
             this.appendStatementInput("STACK").setCheck(null);
-            this.setColour(120);
+            this.setColour('#58b0fd');
             this.setTooltip("Se repite infinitamente.");
             this.setDeletable(false);
+        }
+    };
+
+
+    Blockly.Blocks['arduino_program'] = {
+        init: function() {
+            this.appendDummyInput().appendField("\u2699 AL INICIO");
+            this.appendStatementInput("SETUP").setCheck(null);
+            this.appendDummyInput().appendField("\u21BB REPETIR POR SIEMPRE");
+            this.appendStatementInput("LOOP").setCheck(null);
+            this.setColour('#58b0fd');
+            this.setTooltip("Contenedor principal: Inicio se ejecuta una vez y Repetir corre en bucle.");
+            this.setDeletable(false);
+            this.setMovable(true);
         }
     };
 
@@ -292,7 +636,7 @@
             this.appendDummyInput().appendField("Avanzar 1 paso");
             this.setPreviousStatement(true, null);
             this.setNextStatement(true, null);
-            this.setColour(160);
+            this.setColour('#2DA7D8');
         }
     };
 
@@ -301,7 +645,7 @@
             this.appendDummyInput().appendField("Girar a la Izquierda");
             this.setPreviousStatement(true, null);
             this.setNextStatement(true, null);
-            this.setColour(160);
+            this.setColour('#2DA7D8');
         }
     };
 
@@ -310,7 +654,7 @@
             this.appendDummyInput().appendField("Girar a la Derecha");
             this.setPreviousStatement(true, null);
             this.setNextStatement(true, null);
-            this.setColour(160);
+            this.setColour('#2DA7D8');
         }
     };
 
@@ -318,7 +662,7 @@
         init: function() {
             this.appendDummyInput().appendField("¿Pared al frente?");
             this.setOutput(true, "Boolean");
-            this.setColour(210);
+            this.setColour('#5BBF6A');
         }
     };
 
@@ -326,7 +670,7 @@
         init: function() {
             this.appendDummyInput().appendField("¿Pared a la izquierda?");
             this.setOutput(true, "Boolean");
-            this.setColour(210);
+            this.setColour('#5BBF6A');
         }
     };
 
@@ -334,7 +678,7 @@
         init: function() {
             this.appendDummyInput().appendField("¿Pared a la derecha?");
             this.setOutput(true, "Boolean");
-            this.setColour(210);
+            this.setColour('#5BBF6A');
         }
     };
 
@@ -343,7 +687,7 @@
             this.appendDummyInput().appendField("Avanzar suave");
             this.setPreviousStatement(true, null);
             this.setNextStatement(true, null);
-            this.setColour(160);
+            this.setColour('#2DA7D8');
         }
     };
 
@@ -352,7 +696,7 @@
             this.appendDummyInput().appendField("Corregir hacia la izquierda");
             this.setPreviousStatement(true, null);
             this.setNextStatement(true, null);
-            this.setColour(160);
+            this.setColour('#2DA7D8');
         }
     };
 
@@ -361,7 +705,7 @@
             this.appendDummyInput().appendField("Corregir hacia la derecha");
             this.setPreviousStatement(true, null);
             this.setNextStatement(true, null);
-            this.setColour(160);
+            this.setColour('#2DA7D8');
         }
     };
 
@@ -370,7 +714,7 @@
             this.appendDummyInput().appendField("Centrar robot");
             this.setPreviousStatement(true, null);
             this.setNextStatement(true, null);
-            this.setColour(160);
+            this.setColour('#2DA7D8');
         }
     };
 
@@ -378,7 +722,7 @@
         init: function() {
             this.appendDummyInput().appendField("distancia frente cm");
             this.setOutput(true, "Number");
-            this.setColour(210);
+            this.setColour('#5BBF6A');
         }
     };
 
@@ -386,7 +730,7 @@
         init: function() {
             this.appendDummyInput().appendField("distancia izquierda cm");
             this.setOutput(true, "Number");
-            this.setColour(210);
+            this.setColour('#5BBF6A');
         }
     };
 
@@ -394,7 +738,7 @@
         init: function() {
             this.appendDummyInput().appendField("distancia derecha cm");
             this.setOutput(true, "Number");
-            this.setColour(210);
+            this.setColour('#5BBF6A');
         }
     };
 
@@ -404,7 +748,7 @@
             this.appendDummyInput().appendField("(-255 a 255)");
             this.setPreviousStatement(true, null);
             this.setNextStatement(true, null);
-            this.setColour(20);
+            this.setColour('#2DA7D8');
         }
     };
 
@@ -414,7 +758,25 @@
             this.appendDummyInput().appendField("(-255 a 255)");
             this.setPreviousStatement(true, null);
             this.setNextStatement(true, null);
-            this.setColour(20);
+            this.setColour('#2DA7D8');
+        }
+    };
+
+    Blockly.Blocks['set_motor'] = {
+        init: function() {
+            this.appendDummyInput()
+                .appendField('motor')
+                .appendField(new Blockly.FieldDropdown([
+                    ['izquierdo', 'left'],
+                    ['derecho', 'right']
+                ]), 'SIDE')
+                .appendField('velocidad');
+            this.appendValueInput('SPEED').setCheck('Number');
+            this.appendDummyInput().appendField('(-255 a 255)');
+            this.setPreviousStatement(true, null);
+            this.setNextStatement(true, null);
+            this.setColour('#2DA7D8');
+            this.setTooltip('Configura la velocidad de un motor. Positivo avanza, negativo retrocede.');
         }
     };
 
@@ -423,7 +785,7 @@
             this.appendDummyInput().appendField("detener motores");
             this.setPreviousStatement(true, null);
             this.setNextStatement(true, null);
-            this.setColour(20);
+            this.setColour('#2DA7D8');
         }
     };
 
@@ -433,12 +795,46 @@
             this.appendDummyInput().appendField("ms");
             this.setPreviousStatement(true, null);
             this.setNextStatement(true, null);
-            this.setColour(20);
+            this.setColour('#4F86B5');
         }
     };
 
     // --- GENERADORES DE CÓDIGO (JS para simulación) ---
     const jsGen = Blockly.JavaScript.forBlock ? Blockly.JavaScript.forBlock : Blockly.JavaScript;
+
+    function patchBlockColor(blockType, color) {
+        if(!Blockly.Blocks[blockType] || Blockly.Blocks[blockType].__robomazeColorPatched) return;
+        const originalInit = Blockly.Blocks[blockType].init;
+        Blockly.Blocks[blockType].init = function() {
+            originalInit.call(this);
+            this.setColour(color);
+        };
+        Blockly.Blocks[blockType].__robomazeColorPatched = true;
+    }
+
+    // Decisiones
+    patchBlockColor('controls_if', '#4F86B5');
+
+    // Lógica
+    patchBlockColor('logic_compare', '#0089b7');
+    patchBlockColor('logic_operation', '#0089b7');
+    patchBlockColor('logic_negate', '#0089b7');
+    patchBlockColor('logic_boolean', '#0089b7');
+
+    // Ciclos
+    patchBlockColor('procedures_ifreturn', '#006280');
+    patchBlockColor('procedures_callreturn', '#006280');
+    patchBlockColor('procedures_callnoreturn', '#006280');
+    patchBlockColor('procedures_defreturn', '#006280');
+    patchBlockColor('procedures_defnoreturn', '#006280');
+    patchBlockColor('controls_repeat_ext', '#1fb5e2');
+    patchBlockColor('controls_whileUntil', '#1fb5e2');
+    patchBlockColor('controls_for', '#1fb5e2');
+    patchBlockColor('variables_get', '#f0b648');
+    patchBlockColor('variables_set', '#f0b648');
+    patchBlockColor('math_change', '#f0b648');
+
+
 
     jsGen['arduino_setup'] = function(block, generator) {
         const gen = generator || Blockly.JavaScript;
@@ -448,6 +844,17 @@
     jsGen['arduino_loop'] = function(block, generator) {
         const gen = generator || Blockly.JavaScript;
         return "while(getRunning()) {\n" + gen.statementToCode(block, 'STACK') + "  await step();\n}\n";
+    };
+
+
+    jsGen['arduino_program'] = function(block, generator) {
+        const gen = generator || Blockly.JavaScript;
+        const setup = gen.statementToCode(block, 'SETUP');
+        const loop = gen.statementToCode(block, 'LOOP');
+        return `${setup}while(getRunning()) {
+${loop}  await step();
+}
+`;
     };
 
     jsGen['procedures_defnoreturn'] = function(block, generator) {
@@ -500,6 +907,13 @@
         const gen = generator || Blockly.JavaScript;
         return ["getUltrasonicDistance('right')", gen.ORDER_FUNCTION_CALL];
     };
+    jsGen['set_motor'] = function(block, generator) {
+        const gen = generator || Blockly.JavaScript;
+        const side = block.getFieldValue('SIDE') === 'right' ? 'right' : 'left';
+        const speed = gen.valueToCode(block, 'SPEED', gen.ORDER_NONE) || '0';
+        return `setMotor('${side}', ${speed});\n`;
+    };
+
     jsGen['set_left_motor'] = function(block, generator) {
         const gen = generator || Blockly.JavaScript;
         const speed = gen.valueToCode(block, 'SPEED', gen.ORDER_NONE) || '0';
@@ -517,6 +931,275 @@
         return `await delaySim(${ms});\n`;
     };
 
+
+    function jsStringLiteral(value) {
+        return JSON.stringify(String(value ?? ''));
+    }
+
+    function escapeHtml(value) {
+        return String(value ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    function getTypedVariableConfig(type) {
+        return TYPED_VARIABLE_TYPES.find(item => item.key === type) || TYPED_VARIABLE_TYPES[0];
+    }
+
+    function getVariableByIdOrName(workspace, variableId, fallbackName = '') {
+        if(!workspace) return null;
+        if(variableId && typeof workspace.getVariableById === 'function') {
+            const byId = workspace.getVariableById(variableId);
+            if(byId) return byId;
+        }
+        if(fallbackName && typeof workspace.getVariable === 'function') {
+            return workspace.getVariable(fallbackName) || null;
+        }
+        return null;
+    }
+
+    function getGeneratedVariableName(generator, variableModel, fallbackName = 'variable') {
+        const rawName = variableModel && variableModel.name ? variableModel.name : fallbackName;
+        if(generator && typeof generator.getVariableName === 'function') return generator.getVariableName(rawName);
+        if(generator && generator.nameDB_ && Blockly.VARIABLE_CATEGORY_NAME) {
+            return generator.nameDB_.getName(rawName, Blockly.VARIABLE_CATEGORY_NAME);
+        }
+        return String(rawName).replace(/[^\w]/g, '_');
+    }
+
+    
+
+    function getWorkspaceVariables(workspace) {
+        if(!workspace) return [];
+        const variableMap = workspace.getVariableMap ? workspace.getVariableMap() : null;
+        if(variableMap && typeof variableMap.getAllVariables === 'function') {
+            return variableMap.getAllVariables();
+        }
+        return typeof workspace.getAllVariables === 'function' ? workspace.getAllVariables() : [];
+    }
+function getDefaultValueForVariableType(type) {
+        const config = getTypedVariableConfig(type);
+        return config.defaultValue;
+    }
+
+    function getDefaultCodeForVariableType(type) {
+        if(type === 'Texto' || type === 'Caracter') return "''";
+        return '0';
+    }
+
+    function coerceVariableValue(value, type = 'Entero') {
+        if(type === 'Texto') return String(value ?? '');
+        if(type === 'Caracter') return String(value ?? '').charAt(0);
+        if(type === 'Decimal') {
+            const parsed = Number(value);
+            return Number.isFinite(parsed) ? parsed : 0;
+        }
+        const parsed = Number(value);
+        return Number.isFinite(parsed) ? Math.trunc(parsed) : 0;
+    }
+
+    function formatVariableHudValue(value, type = 'Entero') {
+        if(value === undefined || value === null) return '--';
+        if(type === 'Texto' || type === 'Caracter') return `"${String(value)}"`;
+        if(type === 'Decimal') return Number(value).toFixed(2).replace(/\.00$/, '');
+        return String(Math.trunc(Number(value) || 0));
+    }
+
+    function updateVariableHud(name, value, type = 'Entero') {
+        if(!name) return;
+        robotVariables[name] = {
+            type,
+            value: coerceVariableValue(value, type)
+        };
+        renderVariablesHud();
+    }
+
+    function renderVariablesHud() {
+        const list = document.getElementById('variablesList');
+        if(!list) return;
+        const entries = Object.entries(robotVariables);
+        if(entries.length === 0) {
+            list.innerHTML = '<div class="hud-row" style="opacity: 0.62; font-style: italic; justify-content: center;">Sin variables</div>';
+            return;
+        }
+
+        list.innerHTML = entries.map(([name, data]) => {
+            const safeName = escapeHtml(name);
+            const safeType = escapeHtml(data.type || 'Entero');
+            const safeValue = escapeHtml(formatVariableHudValue(data.value, data.type));
+            return `
+                <div class="hud-row">
+                    <span class="hud-name" title="${safeName}">${safeName}<br><span class="hud-type">${safeType}</span></span>
+                    <span class="hud-value" title="${safeValue}">${safeValue}</span>
+                </div>
+            `;
+        }).join('');
+    }
+
+    function syncVariablesHudFromWorkspace(resetValues = false) {
+        if(!window.workspace || typeof window.workspace.getAllVariables !== 'function') {
+            renderVariablesHud();
+            return;
+        }
+
+        const workspaceVariables = getWorkspaceVariables(window.workspace);
+        const activeNames = new Set();
+        for(const variable of workspaceVariables) {
+            activeNames.add(variable.name);
+            const type = variable.type || 'Entero';
+            if(!robotVariables[variable.name] || resetValues) {
+                robotVariables[variable.name] = {
+                    type,
+                    value: getDefaultValueForVariableType(type)
+                };
+            } else {
+                robotVariables[variable.name].type = type;
+                robotVariables[variable.name].value = coerceVariableValue(robotVariables[variable.name].value, type);
+            }
+        }
+
+        Object.keys(robotVariables).forEach(name => {
+            if(!activeNames.has(name)) delete robotVariables[name];
+        });
+
+        renderVariablesHud();
+    }
+
+    function resetVariableRuntimeValues() {
+        syncVariablesHudFromWorkspace(true);
+    }
+
+    function createXmlElement(tagName, attributes = {}, textContent = null) {
+        const node = document.createElement(tagName);
+        Object.entries(attributes).forEach(([key, value]) => node.setAttribute(key, value));
+        if(textContent !== null) node.textContent = textContent;
+        return node;
+    }
+
+    function createTypedValueXml(type, valueName = 'VALUE') {
+        const value = createXmlElement('value', { name: valueName });
+        if(type === 'Texto' || type === 'Caracter') {
+            const block = createXmlElement('block', { type: 'text' });
+            block.appendChild(createXmlElement('field', { name: 'TEXT' }, type === 'Caracter' ? 'a' : 'texto'));
+            value.appendChild(block);
+        } else {
+            const block = createXmlElement('block', { type: 'math_number' });
+            block.appendChild(createXmlElement('field', { name: 'NUM' }, type === 'Decimal' ? '0.0' : '0'));
+            value.appendChild(block);
+        }
+        return value;
+    }
+
+    function createVariableField(variable) {
+        const attrs = { name: 'VAR', id: variable.getId ? variable.getId() : variable.id || '' };
+        if(variable.type) attrs.variabletype = variable.type;
+        return createXmlElement('field', attrs, variable.name);
+    }
+
+    function createVariableBlockXml(type, variable, withValue = false) {
+        const block = createXmlElement('block', { type });
+        block.appendChild(createVariableField(variable));
+        if(withValue) block.appendChild(createTypedValueXml(variable.type || 'Entero'));
+        return block;
+    }
+
+    function promptTypedVariableName(message, callback) {
+        if(window.Blockly && Blockly.dialog && typeof Blockly.dialog.prompt === 'function') {
+            Blockly.dialog.prompt(message, '', callback);
+            return;
+        }
+        if(window.Blockly && typeof Blockly.prompt === 'function') {
+            Blockly.prompt(message, '', callback);
+            return;
+        }
+        callback(window.prompt(message, '') || '');
+    }
+
+    function createTypedWorkspaceVariable(targetWorkspace, name, type) {
+        if(!targetWorkspace || !name) return null;
+        const variableMap = targetWorkspace.getVariableMap ? targetWorkspace.getVariableMap() : null;
+        if(variableMap && typeof variableMap.createVariable === 'function') return variableMap.createVariable(name, type);
+        if(typeof targetWorkspace.createVariable === 'function') return targetWorkspace.createVariable(name, type);
+        return null;
+    }
+
+    function registerTypedVariableToolbox(workspace) {
+        if(!workspace || typeof workspace.registerToolboxCategoryCallback !== 'function') return;
+
+        TYPED_VARIABLE_TYPES.forEach(config => {
+            const callbackKey = `CREATE_TYPED_VAR_${config.key}`;
+            workspace.registerButtonCallback(callbackKey, button => {
+                const targetWorkspace = button.getTargetWorkspace ? button.getTargetWorkspace() : workspace;
+                const promptText = `Nombre de la nueva variable (${config.label}):`;
+                promptTypedVariableName(promptText, name => {
+                    const cleanName = String(name || '').trim();
+                    if(!cleanName) return;
+                    createTypedWorkspaceVariable(targetWorkspace, cleanName, config.key);
+                    syncVariablesHudFromWorkspace();
+                });
+            });
+        });
+
+        workspace.registerToolboxCategoryCallback('TYPED_VARIABLES', targetWorkspace => {
+            const xmlList = [];
+
+            TYPED_VARIABLE_TYPES.forEach(config => {
+                xmlList.push(createXmlElement('button', {
+                    text: `Crear variable ${config.label}...`,
+                    callbackKey: `CREATE_TYPED_VAR_${config.key}`
+                }));
+            });
+
+            const variables = getWorkspaceVariables(targetWorkspace);
+            if(variables.length === 0) return xmlList;
+
+            xmlList.push(createXmlElement('label', { text: 'Variables creadas' }));
+            variables.forEach(variable => {
+                const type = variable.type || 'Entero';
+                xmlList.push(createXmlElement('label', { text: `${variable.name} (${type})` }));
+                xmlList.push(createVariableBlockXml('variables_get', variable));
+                xmlList.push(createVariableBlockXml('variables_set', variable, true));
+                if(type === 'Entero' || type === 'Decimal') {
+                    const change = createVariableBlockXml('math_change', variable, false);
+                    const delta = createTypedValueXml(type, 'DELTA');
+                    const num = delta.querySelector('field[name="NUM"]');
+                    if(num) num.textContent = '1';
+                    change.appendChild(delta);
+                    xmlList.push(change);
+                }
+            });
+
+            return xmlList;
+        });
+    }
+
+    jsGen['variables_set'] = function(block, generator) {
+        const gen = generator || Blockly.JavaScript;
+        const variableId = block.getFieldValue('VAR');
+        const variableModel = getVariableByIdOrName(block.workspace, variableId);
+        const type = variableModel && variableModel.type ? variableModel.type : 'Entero';
+        const variableCodeName = getGeneratedVariableName(gen, variableModel, block.getField('VAR')?.getText() || 'variable');
+        const valueCode = gen.valueToCode(block, 'VALUE', gen.ORDER_ASSIGNMENT) || getDefaultCodeForVariableType(type);
+        const hudName = jsStringLiteral(variableModel ? variableModel.name : variableCodeName);
+        const typeLiteral = jsStringLiteral(type);
+        return `${variableCodeName} = coerceVariableValue(${valueCode}, ${typeLiteral});\nupdateVariableHud(${hudName}, ${variableCodeName}, ${typeLiteral});\n`;
+    };
+
+    jsGen['math_change'] = function(block, generator) {
+        const gen = generator || Blockly.JavaScript;
+        const variableId = block.getFieldValue('VAR');
+        const variableModel = getVariableByIdOrName(block.workspace, variableId);
+        const type = variableModel && variableModel.type ? variableModel.type : 'Entero';
+        const variableCodeName = getGeneratedVariableName(gen, variableModel, block.getField('VAR')?.getText() || 'variable');
+        const delta = gen.valueToCode(block, 'DELTA', gen.ORDER_ADDITION) || '1';
+        const hudName = jsStringLiteral(variableModel ? variableModel.name : variableCodeName);
+        const typeLiteral = jsStringLiteral(type);
+        return `${variableCodeName} = coerceVariableValue((${variableCodeName} || 0) + (${delta}), ${typeLiteral});\nupdateVariableHud(${hudName}, ${variableCodeName}, ${typeLiteral});\n`;
+    };
+
     // --- LÓGICA DEL LABERINTO ---
     let maze = [];
     const size = 11; // Debe ser impar: el algoritmo excava de a 2 celdas y así la meta queda conectada.
@@ -528,13 +1211,14 @@
         actualLeft: 0, actualRight: 0
     };
     let running = false;
+    let mazeEditMode = false;
     let currentView = 'ortho'; // 'ortho' or 'free'
     let currentMode = 'basic';
     const ROBOT_ACTION_DURATION = 420;
     const ROBOT_ACTION_PAUSE = 80;
     const ROBOT_BASE_Y = 0;
     const ROBOT_MAX_LATERAL_OFFSET = 0.18;
-    const CELL_SIZE_CM = 10; // Escala did?ctica: una baldosa visual representa 10 cm reales.
+    const CELL_SIZE_CM = 10; // Escala didáctica: una baldosa visual representa 10 cm reales.
     const ULTRASONIC_MAX_CM = 250;
     const ULTRASONIC_MIN_CM = 0.3;
     const ADVANCED_STEP_MS = 40;
@@ -543,7 +1227,7 @@
     const ROBOT_COLLISION_RADIUS = 0.30; // radio del cuerpo en celdas para colisión continua.
     const WALL_CELL_HALF_EXTENT = 0.46; // Las paredes visuales miden 0.92 celdas: el sensor debe pegar contra su cara real.
     const BOUNDARY_WALL_HALF_THICKNESS = 0.06;
-    const ULTRASONIC_FRONT_OFFSET = 0.43; // Punta f?sica del sensor frontal, no el centro del robot.
+    const ULTRASONIC_FRONT_OFFSET = 0.43; // Punta física del sensor frontal, no el centro del robot.
     const ULTRASONIC_SIDE_OFFSET = 0.29; // Cara externa de los sensores laterales.
     const ULTRASONIC_SIDE_FORWARD_OFFSET = 0.02;
     const ADVANCED_FRONT_STOP_CM = 1.2;
@@ -603,6 +1287,13 @@
     const freeWorldQuat = new THREE.Quaternion();
     const freeWorldEuler = new THREE.Euler();
     let sceneViewportSyncQueued = false;
+    const TYPED_VARIABLE_TYPES = [
+        { key: 'Entero', label: 'Entero', defaultValue: 0 },
+        { key: 'Decimal', label: 'Decimal', defaultValue: 0 },
+        { key: 'Texto', label: 'Texto', defaultValue: '' },
+        { key: 'Caracter', label: 'Caracter', defaultValue: '' }
+    ];
+    let robotVariables = {};
 
     // --- FUNCIONALIDAD DE VISTAS ---
     function syncViewButtons() {
@@ -702,7 +1393,10 @@
     }
 
     function setMobilePanel(panel) {
-        currentMobilePanel = panel === 'blocks' ? 'blocks' : 'sim';
+        const isDesktop = window.innerWidth > 900;
+        if(panel === 'both' && isDesktop) currentMobilePanel = 'both';
+        else currentMobilePanel = panel === 'blocks' ? 'blocks' : 'sim';
+
         document.body.setAttribute('data-mobile-panel', currentMobilePanel);
         syncPanelButtons();
         requestSceneViewportSync();
@@ -718,14 +1412,160 @@
         document.body.classList.remove('menu-open');
     }
 
+    function syncMazeEditButton() {
+        const button = document.getElementById('mazeEditToggle');
+        if(!button) return;
+        button.classList.toggle('active', mazeEditMode);
+        button.textContent = mazeEditMode ? '✅ Terminar Edición' : '✏️ Editar Laberinto';
+    }
+
+    function setMazeEditMode(enabled, options = {}) {
+        const next = Boolean(enabled);
+        if(next && running) stopSim();
+        mazeEditMode = next;
+        if(mazeEditMode) {
+            isPlacingRobot = false;
+            isRotatingRobot = false;
+            setRotationGizmoActive(false);
+        }
+        syncMazeEditButton();
+        if(!options.silent) {
+            document.getElementById('status').textContent = mazeEditMode
+                ? 'Estado: Edición de laberinto - click/toque para agregar o quitar paredes'
+                : 'Estado: Edición de laberinto finalizada';
+        }
+    }
+
+    function toggleMazeEditMode() {
+        setMazeEditMode(!mazeEditMode);
+    }
+
+    function getMazeOffset() {
+        return -size / 2 + 0.5;
+    }
+
+    function tagMazeCellEntity(entity, x, z) {
+        entity.dataset.cellX = String(x);
+        entity.dataset.cellZ = String(z);
+        entity.setAttribute('data-cell-x', String(x));
+        entity.setAttribute('data-cell-z', String(z));
+        entity.setAttribute('data-raycastable', '');
+    }
+
+    function renderMazeFromState() {
+        const container = document.getElementById('maze-container');
+        if(!container) return;
+        container.innerHTML = '';
+        const offset = getMazeOffset();
+        for(let z = 0; z < size; z++) {
+            for(let x = 0; x < size; x++) {
+                const tile = document.createElement('a-plane');
+                tagMazeCellEntity(tile, x, z);
+                tile.setAttribute('position', `${x + offset} 0.003 ${z + offset}`);
+                tile.setAttribute('rotation', '-90 0 0');
+                tile.setAttribute('width', '0.94');
+                tile.setAttribute('height', '0.94');
+                tile.setAttribute('color', maze[z][x] === 1 ? '#1f2937' : '#e5e7eb');
+                tile.setAttribute('material', `roughness: 0.8; metalness: 0; opacity: ${maze[z][x] === 1 ? 0.35 : 1}`);
+                container.appendChild(tile);
+
+                if(maze[z][x] === 1) {
+                    const box = document.createElement('a-box');
+                    tagMazeCellEntity(box, x, z);
+                    box.setAttribute('position', `${x + offset} 0.45 ${z + offset}`);
+                    box.setAttribute('width', '0.92');
+                    box.setAttribute('height', '0.9');
+                    box.setAttribute('depth', '0.92');
+                    box.setAttribute('material', 'color: #64748b; roughness: 0.7; metalness: 0.05');
+                    container.appendChild(box);
+                }
+            }
+        }
+        addMazeBoundary(container, offset);
+    }
+
+    function findCellEntityFromObject(object) {
+        let cursor = object;
+        while(cursor) {
+            const entity = cursor.el;
+            if(entity && entity.dataset && entity.dataset.cellX !== undefined && entity.dataset.cellZ !== undefined) {
+                return entity;
+            }
+            cursor = cursor.parent;
+        }
+        return null;
+    }
+
+    function getMazeCellFromPointer(event) {
+        const scene = setPlacementMouseFromPointer(event);
+        const container = document.getElementById('maze-container');
+        if(scene && container && container.object3D) {
+            const hits = placementRaycaster.intersectObject(container.object3D, true);
+            for(const hit of hits) {
+                const entity = findCellEntityFromObject(hit.object);
+                if(entity) {
+                    return {
+                        x: Number(entity.dataset.cellX),
+                        z: Number(entity.dataset.cellZ)
+                    };
+                }
+            }
+        }
+
+        const point = getGroundPointFromPointer(event);
+        if(!point) return null;
+        const grid = worldToGridPoint(point);
+        return {
+            x: clamp(Math.round(grid.x), 0, size - 1),
+            z: clamp(Math.round(grid.z), 0, size - 1)
+        };
+    }
+
+    function isProtectedMazeCell(x, z) {
+        const robotX = clamp(Math.round(robotState.fx), 0, size - 1);
+        const robotZ = clamp(Math.round(robotState.fz), 0, size - 1);
+        return (x === 0 && z === 0) ||
+            (x === size - 1 && z === size - 1) ||
+            (x === robotX && z === robotZ);
+    }
+
+    function toggleMazeWallAtPointer(event) {
+        if(!mazeEditMode || running || !maze.length) return false;
+        const cell = getMazeCellFromPointer(event);
+        if(!cell || cell.x < 0 || cell.x >= size || cell.z < 0 || cell.z >= size) return false;
+
+        if(isProtectedMazeCell(cell.x, cell.z)) {
+            document.getElementById('status').textContent = 'Estado: No se puede poner pared en inicio, meta o donde está el robot';
+            return true;
+        }
+
+        maze[cell.z][cell.x] = maze[cell.z][cell.x] === 1 ? 0 : 1;
+        renderMazeFromState();
+        updateSensorHud();
+        document.getElementById('status').textContent = maze[cell.z][cell.x] === 1
+            ? `Estado: Pared agregada (${cell.x}, ${cell.z})`
+            : `Estado: Pared quitada (${cell.x}, ${cell.z})`;
+        return true;
+    }
+
+    function initMazeEditor() {
+        const scene = document.querySelector('a-scene');
+        if(!scene) return;
+        scene.addEventListener('pointerdown', event => {
+            if(!mazeEditMode || running || event.button !== 0) return;
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            toggleMazeWallAtPointer(event);
+        }, true);
+    }
+
     function generateMaze() {
         stopSim();
         resetOrthoCamera();
         setView('ortho');
         requestSceneViewportSync();
 
-        const container = document.getElementById('maze-container');
-        container.innerHTML = '';
+        setMazeEditMode(false, { silent: true });
         maze = Array(size).fill().map(() => Array(size).fill(1));
 
         function walk(x, z) {
@@ -741,31 +1581,8 @@
         }
         walk(0, 0);
         maze[size - 1][size - 1] = 0;
-
-        const offset = -size / 2 + 0.5;
-        for(let z = 0; z < size; z++) {
-            for(let x = 0; x < size; x++) {
-                const tile = document.createElement('a-plane');
-                tile.setAttribute('position', `${x + offset} 0.003 ${z + offset}`);
-                tile.setAttribute('rotation', '-90 0 0');
-                tile.setAttribute('width', '0.94');
-                tile.setAttribute('height', '0.94');
-                tile.setAttribute('color', maze[z][x] === 1 ? '#1f2937' : '#e5e7eb');
-                tile.setAttribute('material', `roughness: 0.8; metalness: 0; opacity: ${maze[z][x] === 1 ? 0.35 : 1}`);
-                container.appendChild(tile);
-
-                if(maze[z][x] === 1) {
-                    const box = document.createElement('a-box');
-                    box.setAttribute('position', `${x + offset} 0.45 ${z + offset}`);
-                    box.setAttribute('width', '0.92');
-                    box.setAttribute('height', '0.9');
-                    box.setAttribute('depth', '0.92');
-                    box.setAttribute('material', 'color: #64748b; roughness: 0.7; metalness: 0.05');
-                    container.appendChild(box);
-                }
-            }
-        }
-        addMazeBoundary(container, offset);
+        renderMazeFromState();
+        const offset = getMazeOffset();
 
         robotState.x = 0; robotState.z = 0; robotState.dir = 1;
         robotState.fx = 0; robotState.fz = 0; robotState.heading = dirToHeading(1);
@@ -775,6 +1592,7 @@
 
         document.getElementById('goal').setAttribute('position', `${size - 1 + offset} 0 ${size - 1 + offset}`);
         updateSensorHud();
+        resetVariableRuntimeValues();
         document.getElementById('status').textContent = "Estado: Laberinto Generado";
     }
 
@@ -795,6 +1613,7 @@
             box.setAttribute('height', wall.height);
             box.setAttribute('depth', wall.depth);
             box.setAttribute('material', 'color: #334155; roughness: 0.65');
+            box.setAttribute('data-raycastable', '');
             container.appendChild(box);
         }
     }
@@ -1506,7 +2325,7 @@
     }
 
     function placeRobotFromPointer(event) {
-        if(running) return false;
+        if(running || mazeEditMode) return false;
         const point = getGroundPointFromPointer(event);
         if(!point) return false;
         const placed = placeRobotAtWorldPoint(point);
@@ -1514,7 +2333,7 @@
             setRotationGizmoActive(false);
             document.getElementById('status').textContent = "Estado: Robot reposicionado";
         } else {
-            document.getElementById('status').textContent = "Estado: Esa celda no estÃ¡ libre";
+            document.getElementById('status').textContent = "Estado: Esa celda no está libre";
         }
         return placed;
     }
@@ -1524,14 +2343,14 @@
         if(!scene) return;
 
         scene.addEventListener('dblclick', event => {
-            if(running || event.button !== 0 || pointerHitsRobot(event)) return;
+            if(running || mazeEditMode || event.button !== 0 || pointerHitsRobot(event)) return;
             event.preventDefault();
             event.stopImmediatePropagation();
             placeRobotFromPointer(event);
         }, true);
 
         scene.addEventListener('pointerdown', event => {
-            if(running || event.button !== 0) return;
+            if(running || mazeEditMode || event.button !== 0) return;
 
             if(pointerHitsRobot(event)) {
                 event.preventDefault();
@@ -1539,12 +2358,12 @@
                 if(rotationGizmoActive) {
                     isRotatingRobot = false;
                     setRotationGizmoActive(false);
-                    document.getElementById('status').textContent = "Estado: Manejador de rotaciÃ³n oculto";
+                    document.getElementById('status').textContent = "Estado: Manejador de rotación oculto";
                 } else {
                     setRotationGizmoActive(true);
                     isRotatingRobot = true;
                     applyRobotRotationFromPointer(event);
-                    document.getElementById('status').textContent = "Estado: RotaciÃ³n activa - arrastrÃ¡ alrededor del robot";
+                    document.getElementById('status').textContent = "Estado: Rotación activa - arrastrá alrededor del robot";
                 }
                 return;
             }
@@ -1557,7 +2376,7 @@
                 } else {
                     isRotatingRobot = false;
                     setRotationGizmoActive(false);
-                    document.getElementById('status').textContent = "Estado: Manejador de rotaciÃ³n oculto";
+                    document.getElementById('status').textContent = "Estado: Manejador de rotación oculto";
                 }
                 return;
             }
@@ -1578,12 +2397,12 @@
         window.addEventListener('pointerup', () => {
             if(isRotatingRobot) {
                 isRotatingRobot = false;
-                document.getElementById('status').textContent = "Estado: OrientaciÃ³n del robot actualizada";
+                document.getElementById('status').textContent = "Estado: Orientación del robot actualizada";
             }
         });
 
         scene.addEventListener('mousedown', event => {
-            if(running || !event.shiftKey || event.button !== 0) return;
+            if(running || mazeEditMode || !event.shiftKey || event.button !== 0) return;
 
             const point = getGroundPointFromPointer(event);
             if(!point) return;
@@ -1783,7 +2602,7 @@
         const nextRight = side === 'right' ? value : robotState.motorRight;
         if(nextLeft > 0 && nextRight > 0 && getUltrasonicDistance('front') <= ADVANCED_FRONT_STOP_CM) {
             stopMotors();
-            document.getElementById('status').textContent = "Estado: Obst?culo demasiado cerca";
+            document.getElementById('status').textContent = "Estado: Obstáculo demasiado cerca";
             return;
         }
         if(side === 'left') robotState.motorLeft = value;
@@ -1826,7 +2645,7 @@
             robotState.actualLeft = 0;
             robotState.actualRight = 0;
             stopMotors();
-            document.getElementById('status').textContent = "Estado: Colisi?n detectada!";
+            document.getElementById('status').textContent = "Estado: Colisión detectada!";
         }
         syncDiscreteFromContinuous();
         updateRobotMesh();
@@ -1847,7 +2666,7 @@
             if(nx >= 0 && nx < size && nz >= 0 && nz < size && maze[nz][nx] === 0) {
                 await animateRobotTo({ targetX: nx, targetZ: nz, bounce: 0.014 });
                 robotState.x = nx; robotState.z = nz; robotState.fx = nx; robotState.fz = nz;
-            } else document.getElementById('status').textContent = "Estado: Colisi?n detectada!";
+            } else document.getElementById('status').textContent = "Estado: Colisión detectada!";
         } else if(type === 'left') {
             const nextDir = (robotState.dir + 3) % 4;
             await animateRobotTo({ targetDir: nextDir, bounce: 0.008, lean: -3 });
@@ -1870,7 +2689,7 @@
 
     function checkWin() {
         if(Math.round(robotState.fx) === size - 1 && Math.round(robotState.fz) === size - 1) {
-            document.getElementById('status').textContent = "?? ?META ALCANZADA!";
+            document.getElementById('status').textContent = "🏁 ¡META ALCANZADA!";
             running = false;
             stopMotors();
         }
@@ -1887,18 +2706,20 @@
 
     async function runCode() {
         if(running) return;
+        if(mazeEditMode) setMazeEditMode(false, { silent: true });
         if(rotationGizmoActive) {
             isRotatingRobot = false;
             setRotationGizmoActive(false);
         }
+        resetVariableRuntimeValues();
         running = true;
         document.getElementById('status').textContent = "Estado: Ejecutando...";
         const code = Blockly.JavaScript.workspaceToCode(workspace);
         console.log("Generated code:", code);
         try {
             const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
-            const F = new AsyncFunction('robotAction', 'advancedRobotAction', 'setMotor', 'stopMotors', 'delaySim', 'checkWall', 'getUltrasonicDistance', 'step', 'getRunning', code);
-            await F(robotAction, advancedRobotAction, setMotor, stopMotors, delaySim, checkWall, getUltrasonicDistance, step, getRunning);
+            const F = new AsyncFunction('robotAction', 'advancedRobotAction', 'setMotor', 'stopMotors', 'delaySim', 'checkWall', 'getUltrasonicDistance', 'step', 'getRunning', 'updateVariableHud', 'coerceVariableValue', code);
+            await F(robotAction, advancedRobotAction, setMotor, stopMotors, delaySim, checkWall, getUltrasonicDistance, step, getRunning, updateVariableHud, coerceVariableValue);
         } catch (e) {
             console.error(e);
             document.getElementById('status').textContent = "Error: " + e.message;
@@ -1933,29 +2754,28 @@
                                 <block type="controls_if">
                                     <mutation elseif="1" else="1"></mutation>
                                     <value name="IF0"><block type="logic_compare"><field name="OP">GT</field><value name="A"><block type="ultrasonic_left"></block></value><value name="B"><block type="math_arithmetic"><field name="OP">ADD</field><value name="A"><block type="ultrasonic_right"></block></value><value name="B"><block type="math_number"><field name="NUM">0.5</field></block></value></block></value></block></value>
-                                    <statement name="DO0"><block type="set_left_motor"><value name="SPEED"><block type="math_number"><field name="NUM">125</field></block></value><next><block type="set_right_motor"><value name="SPEED"><block type="math_number"><field name="NUM">175</field></block></value></block></next></block></statement>
+                                    <statement name="DO0"><block type="set_motor"><field name="SIDE">left</field><value name="SPEED"><block type="math_number"><field name="NUM">125</field></block></value><next><block type="set_motor"><field name="SIDE">right</field><value name="SPEED"><block type="math_number"><field name="NUM">175</field></block></value></block></next></block></statement>
                                     <value name="IF1"><block type="logic_compare"><field name="OP">GT</field><value name="A"><block type="ultrasonic_right"></block></value><value name="B"><block type="math_arithmetic"><field name="OP">ADD</field><value name="A"><block type="ultrasonic_left"></block></value><value name="B"><block type="math_number"><field name="NUM">0.5</field></block></value></block></value></block></value>
-                                    <statement name="DO1"><block type="set_left_motor"><value name="SPEED"><block type="math_number"><field name="NUM">175</field></block></value><next><block type="set_right_motor"><value name="SPEED"><block type="math_number"><field name="NUM">125</field></block></value></block></next></block></statement>
-                                    <statement name="ELSE"><block type="set_left_motor"><value name="SPEED"><block type="math_number"><field name="NUM">170</field></block></value><next><block type="set_right_motor"><value name="SPEED"><block type="math_number"><field name="NUM">170</field></block></value></block></next></block></statement>
+                                    <statement name="DO1"><block type="set_motor"><field name="SIDE">left</field><value name="SPEED"><block type="math_number"><field name="NUM">175</field></block></value><next><block type="set_motor"><field name="SIDE">right</field><value name="SPEED"><block type="math_number"><field name="NUM">125</field></block></value></block></next></block></statement>
+                                    <statement name="ELSE"><block type="set_motor"><field name="SIDE">left</field><value name="SPEED"><block type="math_number"><field name="NUM">170</field></block></value><next><block type="set_motor"><field name="SIDE">right</field><value name="SPEED"><block type="math_number"><field name="NUM">170</field></block></value></block></next></block></statement>
                                 </block>
                             </statement>
-                            <statement name="ELSE"><block type="set_left_motor"><value name="SPEED"><block type="math_number"><field name="NUM">170</field></block></value><next><block type="set_right_motor"><value name="SPEED"><block type="math_number"><field name="NUM">170</field></block></value></block></next></block></statement>
+                            <statement name="ELSE"><block type="set_motor"><field name="SIDE">left</field><value name="SPEED"><block type="math_number"><field name="NUM">170</field></block></value><next><block type="set_motor"><field name="SIDE">right</field><value name="SPEED"><block type="math_number"><field name="NUM">170</field></block></value></block></next></block></statement>
                         </block>
                     </statement>
                 </block>
-                <block type="procedures_defnoreturn" x="20" y="360"><field name="NAME">girar_derecha_90</field><statement name="STACK"><block type="set_left_motor"><value name="SPEED"><block type="math_number"><field name="NUM">180</field></block></value><next><block type="set_right_motor"><value name="SPEED"><block type="math_number"><field name="NUM">-180</field></block></value><next><block type="wait_ms"><value name="MS"><block type="math_number"><field name="NUM">440</field></block></value><next><block type="stop_motors"></block></next></block></next></block></next></block></statement></block>
-                <block type="procedures_defnoreturn" x="20" y="560"><field name="NAME">girar_izquierda_90</field><statement name="STACK"><block type="set_left_motor"><value name="SPEED"><block type="math_number"><field name="NUM">-180</field></block></value><next><block type="set_right_motor"><value name="SPEED"><block type="math_number"><field name="NUM">180</field></block></value><next><block type="wait_ms"><value name="MS"><block type="math_number"><field name="NUM">440</field></block></value><next><block type="stop_motors"></block></next></block></next></block></next></block></statement></block>
-                <block type="arduino_setup" x="560" y="20"></block>
-                <block type="arduino_loop" x="560" y="120"><statement name="STACK"><block type="controls_if"><mutation elseif="2" else="1"></mutation><value name="IF0"><block type="logic_compare"><field name="OP">GT</field><value name="A"><block type="ultrasonic_right"></block></value><value name="B"><block type="math_number"><field name="NUM">7</field></block></value></block></value><statement name="DO0"><block type="procedures_callnoreturn"><mutation name="girar_derecha_90"></mutation><next><block type="wait_ms"><value name="MS"><block type="math_number"><field name="NUM">80</field></block></value></block></next></block></statement><value name="IF1"><block type="logic_compare"><field name="OP">GT</field><value name="A"><block type="ultrasonic_front"></block></value><value name="B"><block type="math_number"><field name="NUM">3.5</field></block></value></block></value><statement name="DO1"><block type="procedures_callnoreturn"><mutation name="centrar_robot"></mutation><next><block type="wait_ms"><value name="MS"><block type="math_number"><field name="NUM">120</field></block></value></block></next></block></statement><value name="IF2"><block type="logic_compare"><field name="OP">GT</field><value name="A"><block type="ultrasonic_left"></block></value><value name="B"><block type="math_number"><field name="NUM">7</field></block></value></block></value><statement name="DO2"><block type="procedures_callnoreturn"><mutation name="girar_izquierda_90"></mutation><next><block type="wait_ms"><value name="MS"><block type="math_number"><field name="NUM">80</field></block></value></block></next></block></statement><statement name="ELSE"><block type="procedures_callnoreturn"><mutation name="girar_izquierda_90"></mutation><next><block type="wait_ms"><value name="MS"><block type="math_number"><field name="NUM">80</field></block></value></block></next></block></statement></block></statement></block>
+                <block type="procedures_defnoreturn" x="20" y="360"><field name="NAME">girar_derecha_90</field><statement name="STACK"><block type="set_motor"><field name="SIDE">left</field><value name="SPEED"><block type="math_number"><field name="NUM">180</field></block></value><next><block type="set_motor"><field name="SIDE">right</field><value name="SPEED"><block type="math_number"><field name="NUM">-180</field></block></value><next><block type="wait_ms"><value name="MS"><block type="math_number"><field name="NUM">440</field></block></value><next><block type="stop_motors"></block></next></block></next></block></next></block></statement></block>
+                <block type="procedures_defnoreturn" x="20" y="560"><field name="NAME">girar_izquierda_90</field><statement name="STACK"><block type="set_motor"><field name="SIDE">left</field><value name="SPEED"><block type="math_number"><field name="NUM">-180</field></block></value><next><block type="set_motor"><field name="SIDE">right</field><value name="SPEED"><block type="math_number"><field name="NUM">180</field></block></value><next><block type="wait_ms"><value name="MS"><block type="math_number"><field name="NUM">440</field></block></value><next><block type="stop_motors"></block></next></block></next></block></next></block></statement></block>
+                <block type="arduino_program" x="560" y="20"><statement name="SETUP"></statement><statement name="LOOP"><block type="controls_if"><mutation elseif="2" else="1"></mutation><value name="IF0"><block type="logic_compare"><field name="OP">GT</field><value name="A"><block type="ultrasonic_right"></block></value><value name="B"><block type="math_number"><field name="NUM">7</field></block></value></block></value><statement name="DO0"><block type="procedures_callnoreturn"><mutation name="girar_derecha_90"></mutation><next><block type="wait_ms"><value name="MS"><block type="math_number"><field name="NUM">80</field></block></value></block></next></block></statement><value name="IF1"><block type="logic_compare"><field name="OP">GT</field><value name="A"><block type="ultrasonic_front"></block></value><value name="B"><block type="math_number"><field name="NUM">3.5</field></block></value></block></value><statement name="DO1"><block type="procedures_callnoreturn"><mutation name="centrar_robot"></mutation><next><block type="wait_ms"><value name="MS"><block type="math_number"><field name="NUM">120</field></block></value></block></next></block></statement><value name="IF2"><block type="logic_compare"><field name="OP">GT</field><value name="A"><block type="ultrasonic_left"></block></value><value name="B"><block type="math_number"><field name="NUM">7</field></block></value></block></value><statement name="DO2"><block type="procedures_callnoreturn"><mutation name="girar_izquierda_90"></mutation><next><block type="wait_ms"><value name="MS"><block type="math_number"><field name="NUM">80</field></block></value></block></next></block></statement><statement name="ELSE"><block type="procedures_callnoreturn"><mutation name="girar_izquierda_90"></mutation><next><block type="wait_ms"><value name="MS"><block type="math_number"><field name="NUM">80</field></block></value></block></next></block></statement></block></statement></block>
             </xml>
             `;
         }
 
         return `
             <xml xmlns="https://developers.google.com/blockly/xml">
-                <block type="arduino_setup" x="20" y="20"></block>
-                <block type="arduino_loop" x="20" y="120">
-                    <statement name="STACK">
+                <block type="arduino_program" x="20" y="20">
+                    <statement name="SETUP"></statement>
+                    <statement name="LOOP">
                         <block type="controls_if"><mutation elseif="1" else="1"></mutation><value name="IF0"><block type="logic_negate"><value name="BOOL"><block type="sensor_wall_right"></block></value></block></value><statement name="DO0"><block type="turn_right"><next><block type="move_forward"></block></next></block></statement><value name="IF1"><block type="logic_negate"><value name="BOOL"><block type="sensor_wall_ahead"></block></value></block></value><statement name="DO1"><block type="move_forward"></block></statement><statement name="ELSE"><block type="turn_left"></block></statement></block>
                     </statement>
                 </block>
@@ -1974,8 +2794,16 @@
         return Blockly.Xml.domToPrettyText(xmlDom);
     }
 
+    function normalizeEducationalXmlText(xmlText) {
+        // En RoboMaze los números deben verse como bloques reales, no como sombras grises.
+        // Esto también migra programas guardados antes del cambio de toolbox.
+        return String(xmlText || '')
+            .replace(/<shadow type="math_number">/g, '<block type="math_number">')
+            .replace(/<\/shadow>/g, '</block>');
+    }
+
     function loadWorkspaceXmlText(xmlText) {
-        const xmlDom = Blockly.utils.xml.textToDom(xmlText);
+        const xmlDom = Blockly.utils.xml.textToDom(normalizeEducationalXmlText(xmlText));
         window.workspace.clear();
         Blockly.Xml.domToWorkspace(xmlDom, window.workspace);
     }
@@ -2044,16 +2872,170 @@
         document.getElementById('status').textContent = "Estado: XML exportado";
     }
 
-    function initBlockly() {
+    
+    const JJ_SELECTION_VARIANTS = {
+        naranja: { stroke: '#FF8A00', light: '#FFC266', glow: 'rgba(255,138,0,0.65)' },
+        lima: { stroke: '#B8FF2C', light: '#E3FF9A', glow: 'rgba(184,255,44,0.65)' }
+    };
+    let JJ_SELECTION_ACTIVE = 'lima'; // cambi? a 'lima' para probar la otra variante
+
+function applyJJBlocklySelectionStyle() {
+        const styleId = 'jj-blockly-selection-style';
+        let tag = document.getElementById(styleId);
+        if(!tag) {
+            tag = document.createElement('style');
+            tag.id = styleId;
+            document.head.appendChild(tag);
+        }
+        const active = JJ_SELECTION_VARIANTS[JJ_SELECTION_ACTIVE] || JJ_SELECTION_VARIANTS.naranja;
+        tag.textContent = `
+            .zelos-renderer.classic-theme .blocklySelected > .blocklyPath,
+            .zelos-renderer.classic-theme .blocklyPath.blocklySelected,
+            .zelos-renderer.classic-theme .blocklyPath.blocklyActiveFocus,
+            .zelos-renderer.classic-theme .blocklySelected .blocklyPath.blocklyActiveFocus,
+            #blocklyDiv .blocklyPath.blocklyActiveFocus,
+            #blocklyDiv g.blocklyDraggable.blocklySelected > .blocklyPath {
+                stroke: ${active.stroke} !important;
+                stroke-width: 3px !important;
+                filter: drop-shadow(0 0 4px ${active.glow});
+            }
+            .zelos-renderer.classic-theme .blocklySelected > .blocklyPathLight,
+            .zelos-renderer.classic-theme .blocklySelected .blocklyPathLight,
+            #blocklyDiv g.blocklyDraggable.blocklySelected > .blocklyPathLight {
+                stroke: ${active.light} !important;
+                stroke-width: 1.6px !important;
+                opacity: 0.95 !important;
+            }
+            .zelos-renderer.classic-theme .blocklyInsertionMarker > .blocklyPath,
+            .zelos-renderer.classic-theme .blocklyInsertionMarker .blocklyPath,
+            #blocklyDiv .blocklyInsertionMarker .blocklyPath {
+                fill: ${active.stroke} !important;
+                fill-opacity: 0.22 !important;
+                stroke: ${active.stroke} !important;
+                stroke-width: 2px !important;
+            }
+            .zelos-renderer.classic-theme .blocklyHighlightedConnectionPath,
+            #blocklyDiv .blocklyHighlightedConnectionPath {
+                stroke: ${active.stroke} !important;
+                fill: ${active.stroke} !important;
+            }
+        `;
+
+        const enforce = () => {
+            const root = document.getElementById('blocklyDiv');
+            if(!root) return;
+
+            // 1) limpiar estilos previos para que no queden bloques viejos pintados
+            root.querySelectorAll('g.blocklyDraggable > path.blocklyPath').forEach(path => {
+                const parent = path.parentElement;
+                const isSelected = parent && parent.classList.contains('blocklySelected');
+                const isActiveFocus = path.classList.contains('blocklyActiveFocus');
+                if(!isSelected && !isActiveFocus) {
+                    path.style.stroke = '';
+                    path.style.strokeWidth = '';
+                    path.style.filter = '';
+                    path.removeAttribute('stroke');
+                }
+            });
+
+            root.querySelectorAll('g.blocklyDraggable > path.blocklyPathLight').forEach(path => {
+                const parent = path.parentElement;
+                const isSelected = parent && parent.classList.contains('blocklySelected');
+                if(!isSelected) {
+                    path.style.stroke = '';
+                    path.style.strokeWidth = '';
+                    path.style.opacity = '';
+                    path.removeAttribute('stroke');
+                }
+            });
+
+            // 2) aplicar solo al bloque seleccionado/activo actual
+            root.querySelectorAll('path.blocklyPath.blocklyActiveFocus, g.blocklyDraggable.blocklySelected > path.blocklyPath').forEach(path => {
+                path.setAttribute('stroke', active.stroke);
+                path.style.stroke = active.stroke;
+                path.style.strokeWidth = '3px';
+                path.style.filter = `drop-shadow(0 0 4px ${active.glow})`;
+            });
+
+            root.querySelectorAll('g.blocklyDraggable.blocklySelected > path.blocklyPathLight').forEach(path => {
+                path.setAttribute('stroke', active.light);
+                path.style.stroke = active.light;
+                path.style.strokeWidth = '1.6px';
+                path.style.opacity = '0.95';
+            });
+
+            root.querySelectorAll('path.blocklyHighlightedConnectionPath').forEach(path => {
+                path.setAttribute('stroke', active.stroke);
+                path.style.stroke = active.stroke;
+                path.style.fill = active.stroke;
+            });
+        };
+
+        enforce();
+
+        const root = document.getElementById('blocklyDiv');
+        if(root && !root.__jjSelectionObserver) {
+            const observer = new MutationObserver(() => requestAnimationFrame(enforce));
+            observer.observe(root, {
+                subtree: true,
+                childList: true,
+                attributes: true,
+                attributeFilter: ['class', 'style', 'stroke', 'fill']
+            });
+            root.__jjSelectionObserver = observer;
+        }
+
+        window.__jjBlocklyEnforceSelection = enforce;
+    }
+
+function initBlockly() {
+        localizeBlocklyForEducation();
         const workspace = Blockly.inject('blocklyDiv', {
             toolbox: document.getElementById('toolbox-basic'),
             scrollbars: true,
-            trashcan: true
+            trashcan: true,
+            renderer: 'zelos',
+            theme: Blockly.Themes.JJRobotica,
+            zoom: {
+                controls: true,
+                wheel: true,
+                startScale: 0.85,
+                maxScale: 2.2,
+                minScale: 0.45,
+                scaleSpeed: 1.08,
+                pinch: true
+            },
+            move: {
+                scrollbars: true,
+                drag: true,
+                wheel: true
+            }
         });
+        applyJJBlocklySelectionStyle();
         
+        registerTypedVariableToolbox(workspace);
+
         // Hacer las variables globales accesibles
         window.workspace = workspace;
         if(!loadBlocks('basic', { silent: true })) loadDefaultProgram('basic');
+        syncVariablesHudFromWorkspace();
+        workspace.addChangeListener(event => {
+            if(window.__jjBlocklyEnforceSelection) window.__jjBlocklyEnforceSelection();
+            if(event && event.isUiEvent) return;
+            const variableEvents = new Set([
+                Blockly.Events.VAR_CREATE,
+                Blockly.Events.VAR_DELETE,
+                Blockly.Events.VAR_RENAME,
+                Blockly.Events.FINISHED_LOADING,
+                'var_create',
+                'var_delete',
+                'var_rename',
+                'finished_loading'
+            ].filter(Boolean));
+            if(!event || variableEvents.has(event.type)) {
+                requestAnimationFrame(() => syncVariablesHudFromWorkspace());
+            }
+        });
         window.addEventListener('resize', () => Blockly.svgResize(workspace));
         requestAnimationFrame(() => {
             Blockly.svgResize(workspace);
@@ -2062,7 +3044,7 @@
     }
 
     function initLayoutShell() {
-        setMobilePanel('sim');
+        setMobilePanel(window.innerWidth > 900 ? 'both' : 'sim');
         syncModeButtons();
         syncViewButtons();
         window.addEventListener('keydown', event => {
@@ -2070,6 +3052,7 @@
         });
         window.addEventListener('resize', () => {
             if(window.innerWidth > 900) closeSideMenu();
+            if(window.innerWidth <= 900 && currentMobilePanel === 'both') setMobilePanel('sim');
             requestSceneViewportSync();
             if(window.workspace) requestAnimationFrame(() => Blockly.svgResize(window.workspace));
         });
@@ -2085,6 +3068,7 @@
 
         initLayoutShell();
         initBlockly();
+        initMazeEditor();
         initRobotPlacement();
         initOrthoCameraControls();
         initFreeCameraPan();
