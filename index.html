@@ -154,6 +154,17 @@
             fill: #fdfeff !important;
         }
 
+        /* Variables: el bloque/óvalo principal debe mantener texto blanco como el resto del bloque.
+           Usamos child selector para no afectar números o textos conectados como bloques internos. */
+        g.variables_get > .blocklyEditableField > text,
+        g.variables_get > .blocklyEditableField .blocklyFieldText,
+        g.variables_set > .blocklyEditableField > text,
+        g.variables_set > .blocklyEditableField .blocklyFieldText,
+        g.math_change > .blocklyEditableField > text,
+        g.math_change > .blocklyEditableField .blocklyFieldText {
+            fill: #ffffff !important;
+        }
+
         #blocklyDiv { position: absolute; top: 42px; left: 0; right: 0; bottom: 0; }
         #simContainer { flex: 1; position: relative; border-left: 2px solid #34495e; }
         .controls { position: absolute; bottom: 20px; left: 20px; display: flex; gap: 10px; z-index: 100; }
@@ -349,8 +360,8 @@
             <button class="btn btn-view" data-view="free" onclick="setView('free')">Vista Libre</button>
         </div>
         <div class="controls">
-            <button class="btn btn-run" onclick="runCode()">▶ Ejecutar Programa</button>
-            <button class="btn btn-stop" onclick="stopSim()">■ Detener</button>
+            <button class="btn btn-run" id="runToggleButton" onclick="runCode()">▶ Ejecutar Programa</button>
+            <button class="btn btn-stop" id="resetRobotButton" onclick="resetRobotPose()">↺ Reset Robot</button>
             <button class="btn btn-maze" onclick="generateMaze()">🎲 Nuevo Laberinto</button>
             <button class="btn btn-edit" id="mazeEditToggle" onclick="toggleMazeEditMode()">✏️ Editar Laberinto</button>
         </div>
@@ -872,6 +883,14 @@
     patchBlockColor('controls_repeat_ext', '#1fb5e2');
     patchBlockColor('controls_whileUntil', '#1fb5e2');
     patchBlockColor('controls_for', '#1fb5e2');
+
+    // Matemática
+    patchBlockColor('math_number', '#26a9ff');
+    patchBlockColor('math_arithmetic', '#26a9ff');
+    patchBlockColor('math_single', '#26a9ff');
+    patchBlockColor('math_number_property', '#26a9ff');
+
+    // Variables
     patchBlockColor('variables_get', '#f0b648');
     patchBlockColor('variables_set', '#f0b648');
     patchBlockColor('math_change', '#f0b648');
@@ -1082,7 +1101,7 @@ function getDefaultValueForVariableType(type) {
     }
 
     function syncVariablesHudFromWorkspace(resetValues = false) {
-        if(!window.workspace || typeof window.workspace.getAllVariables !== 'function') {
+        if(!window.workspace) {
             renderVariablesHud();
             return;
         }
@@ -1112,6 +1131,217 @@ function getDefaultValueForVariableType(type) {
 
     function resetVariableRuntimeValues() {
         syncVariablesHudFromWorkspace(true);
+    }
+
+    let liveVariablesHudQueued = false;
+    function scheduleLiveVariablesHudUpdate() {
+        if(liveVariablesHudQueued) return;
+        liveVariablesHudQueued = true;
+        requestAnimationFrame(() => {
+            liveVariablesHudQueued = false;
+            refreshLiveVariablesHud();
+        });
+    }
+
+    function isBlockDisabled(block) {
+        if(!block) return true;
+        if(typeof block.isEnabled === 'function') return !block.isEnabled();
+        return Boolean(block.disabled);
+    }
+
+    function getBlockVariableModel(block) {
+        const variableId = block.getFieldValue('VAR');
+        return getVariableByIdOrName(block.workspace, variableId, block.getField('VAR')?.getText() || '');
+    }
+
+    function getVariablePreviewName(block, variableModel) {
+        return variableModel ? variableModel.name : (block.getField('VAR')?.getText() || 'variable');
+    }
+
+    function evaluatePreviewValue(block, env) {
+        if(!block || isBlockDisabled(block)) return 0;
+        const value = name => evaluatePreviewValue(block.getInputTargetBlock(name), env);
+
+        switch(block.type) {
+            case 'math_number':
+                return Number(block.getFieldValue('NUM')) || 0;
+            case 'text':
+                return block.getFieldValue('TEXT') || '';
+            case 'variables_get': {
+                const variableModel = getBlockVariableModel(block);
+                const name = getVariablePreviewName(block, variableModel);
+                const type = variableModel && variableModel.type ? variableModel.type : 'Entero';
+                return env[name] !== undefined ? env[name] : getDefaultValueForVariableType(type);
+            }
+            case 'ultrasonic_front':
+                return getUltrasonicDistance('front');
+            case 'ultrasonic_left':
+                return getUltrasonicDistance('left');
+            case 'ultrasonic_right':
+                return getUltrasonicDistance('right');
+            case 'sensor_wall_ahead':
+                return checkWall('ahead');
+            case 'sensor_wall_left':
+                return checkWall('left');
+            case 'sensor_wall_right':
+                return checkWall('right');
+            case 'logic_boolean':
+                return block.getFieldValue('BOOL') === 'TRUE';
+            case 'logic_negate':
+                return !Boolean(value('BOOL'));
+            case 'logic_operation': {
+                const op = block.getFieldValue('OP');
+                return op === 'AND' ? Boolean(value('A')) && Boolean(value('B')) : Boolean(value('A')) || Boolean(value('B'));
+            }
+            case 'logic_compare': {
+                const a = value('A');
+                const b = value('B');
+                switch(block.getFieldValue('OP')) {
+                    case 'EQ': return a == b;
+                    case 'NEQ': return a != b;
+                    case 'LT': return Number(a) < Number(b);
+                    case 'LTE': return Number(a) <= Number(b);
+                    case 'GT': return Number(a) > Number(b);
+                    case 'GTE': return Number(a) >= Number(b);
+                    default: return false;
+                }
+            }
+            case 'math_arithmetic': {
+                const a = Number(value('A')) || 0;
+                const b = Number(value('B')) || 0;
+                switch(block.getFieldValue('OP')) {
+                    case 'ADD': return a + b;
+                    case 'MINUS': return a - b;
+                    case 'MULTIPLY': return a * b;
+                    case 'DIVIDE': return b === 0 ? 0 : a / b;
+                    case 'POWER': return Math.pow(a, b);
+                    default: return 0;
+                }
+            }
+            case 'math_single': {
+                const n = Number(value('NUM')) || 0;
+                switch(block.getFieldValue('OP')) {
+                    case 'ROOT': return Math.sqrt(Math.max(0, n));
+                    case 'ABS': return Math.abs(n);
+                    case 'NEG': return -n;
+                    case 'LN': return n > 0 ? Math.log(n) : 0;
+                    case 'LOG10': return n > 0 ? Math.log10(n) : 0;
+                    case 'EXP': return Math.exp(n);
+                    case 'POW10': return Math.pow(10, n);
+                    default: return n;
+                }
+            }
+            default:
+                return 0;
+        }
+    }
+
+    function buildProcedurePreviewMap(workspace) {
+        const procedures = new Map();
+        if(!workspace || typeof workspace.getAllBlocks !== 'function') return procedures;
+        workspace.getAllBlocks(false).forEach(block => {
+            if(block.type === 'procedures_defnoreturn' || block.type === 'procedures_defreturn') {
+                const name = block.getFieldValue('NAME');
+                if(name) procedures.set(name, block);
+            }
+        });
+        return procedures;
+    }
+
+    function executePreviewStatementChain(block, env, procedures, callStack = new Set()) {
+        let cursor = block;
+        let guard = 0;
+        while(cursor && guard < 250) {
+            executePreviewStatement(cursor, env, procedures, callStack);
+            cursor = typeof cursor.getNextBlock === 'function' ? cursor.getNextBlock() : null;
+            guard++;
+        }
+    }
+
+    function executePreviewStatement(block, env, procedures, callStack) {
+        if(!block || isBlockDisabled(block)) return;
+
+        if(block.type === 'arduino_program') {
+            executePreviewStatementChain(block.getInputTargetBlock('SETUP'), env, procedures, callStack);
+            executePreviewStatementChain(block.getInputTargetBlock('LOOP'), env, procedures, callStack);
+            return;
+        }
+
+        if(block.type === 'arduino_setup' || block.type === 'arduino_loop') {
+            executePreviewStatementChain(block.getInputTargetBlock('STACK'), env, procedures, callStack);
+            return;
+        }
+
+        if(block.type === 'variables_set') {
+            const variableModel = getBlockVariableModel(block);
+            const name = getVariablePreviewName(block, variableModel);
+            const type = variableModel && variableModel.type ? variableModel.type : 'Entero';
+            const nextValue = coerceVariableValue(evaluatePreviewValue(block.getInputTargetBlock('VALUE'), env), type);
+            env[name] = nextValue;
+            robotVariables[name] = { type, value: nextValue };
+            return;
+        }
+
+        if(block.type === 'math_change') {
+            const variableModel = getBlockVariableModel(block);
+            const name = getVariablePreviewName(block, variableModel);
+            const type = variableModel && variableModel.type ? variableModel.type : 'Entero';
+            const currentValue = Number(env[name] ?? getDefaultValueForVariableType(type)) || 0;
+            const delta = Number(evaluatePreviewValue(block.getInputTargetBlock('DELTA'), env)) || 0;
+            const nextValue = coerceVariableValue(currentValue + delta, type);
+            env[name] = nextValue;
+            robotVariables[name] = { type, value: nextValue };
+            return;
+        }
+
+        if(block.type === 'controls_if') {
+            let branchIndex = 0;
+            while(block.getInput(`IF${branchIndex}`)) {
+                if(Boolean(evaluatePreviewValue(block.getInputTargetBlock(`IF${branchIndex}`), env))) {
+                    executePreviewStatementChain(block.getInputTargetBlock(`DO${branchIndex}`), env, procedures, callStack);
+                    return;
+                }
+                branchIndex++;
+            }
+            executePreviewStatementChain(block.getInputTargetBlock('ELSE'), env, procedures, callStack);
+            return;
+        }
+
+        if(block.type === 'controls_repeat_ext' || block.type === 'controls_whileUntil' || block.type === 'controls_for') {
+            // Vista previa didáctica: una sola pasada para reflejar valores actuales sin ejecutar la simulación.
+            executePreviewStatementChain(block.getInputTargetBlock('DO'), env, procedures, callStack);
+            return;
+        }
+
+        if(block.type === 'procedures_callnoreturn') {
+            const name = block.getProcedureCall && block.getProcedureCall();
+            const definition = name ? procedures.get(name) : null;
+            if(definition && !callStack.has(name)) {
+                callStack.add(name);
+                executePreviewStatementChain(definition.getInputTargetBlock('STACK'), env, procedures, callStack);
+                callStack.delete(name);
+            }
+        }
+    }
+
+    function refreshLiveVariablesHud() {
+        if(running || !window.workspace) return;
+        syncVariablesHudFromWorkspace(false);
+
+        const env = {};
+        getWorkspaceVariables(window.workspace).forEach(variable => {
+            const type = variable.type || 'Entero';
+            env[variable.name] = robotVariables[variable.name]
+                ? robotVariables[variable.name].value
+                : getDefaultValueForVariableType(type);
+        });
+
+        const procedures = buildProcedurePreviewMap(window.workspace);
+        const topBlocks = typeof window.workspace.getTopBlocks === 'function' ? window.workspace.getTopBlocks(true) : [];
+        const programBlocks = topBlocks.filter(block => block.type === 'arduino_program' || block.type === 'arduino_setup' || block.type === 'arduino_loop');
+        const blocksToPreview = programBlocks.length ? programBlocks : topBlocks;
+        blocksToPreview.forEach(block => executePreviewStatementChain(block, env, procedures));
+        renderVariablesHud();
     }
 
     function createXmlElement(tagName, attributes = {}, textContent = null) {
@@ -1253,6 +1483,8 @@ function getDefaultValueForVariableType(type) {
         actualLeft: 0, actualRight: 0
     };
     let running = false;
+    let initialRobotPose = null;
+    let manualRobotPose = null;
     let mazeEditMode = false;
     let currentView = 'ortho'; // 'ortho' or 'free'
     let currentMode = 'basic';
@@ -1350,6 +1582,13 @@ function getDefaultValueForVariableType(type) {
         });
     }
 
+    function syncRunButton() {
+        const button = document.getElementById('runToggleButton');
+        if(!button) return;
+        button.textContent = running ? '⏸ Pausa' : '▶ Ejecutar Programa';
+        button.title = running ? 'Pausar la ejecución actual' : 'Ejecutar el programa de bloques';
+    }
+
     function syncPanelButtons() {
         document.querySelectorAll('.panel-btn[data-panel]').forEach(btn => {
             btn.classList.toggle('active', btn.dataset.panel === currentMobilePanel);
@@ -1409,6 +1648,13 @@ function getDefaultValueForVariableType(type) {
     }
 
     function setMode(mode) {
+        if(mode !== 'basic' && mode !== 'advanced') return;
+
+        const previousMode = currentMode;
+        if(window.workspace && previousMode !== mode) {
+            saveBlocks(previousMode, { silent: true });
+        }
+
         currentMode = mode;
         syncModeButtons();
 
@@ -1484,6 +1730,55 @@ function getDefaultValueForVariableType(type) {
 
     function getMazeOffset() {
         return -size / 2 + 0.5;
+    }
+
+    function captureRobotPose() {
+        return {
+            x: robotState.x,
+            z: robotState.z,
+            dir: robotState.dir,
+            fx: robotState.fx,
+            fz: robotState.fz,
+            heading: robotState.heading
+        };
+    }
+
+    function restoreRobotPose(pose) {
+        const fallback = pose || { x: 0, z: 0, dir: 1, fx: 0, fz: 0, heading: dirToHeading(1) };
+        robotState.x = clamp(Math.round(fallback.x ?? 0), 0, size - 1);
+        robotState.z = clamp(Math.round(fallback.z ?? 0), 0, size - 1);
+        robotState.dir = clamp(Math.round(fallback.dir ?? headingToDir(fallback.heading ?? dirToHeading(1))), 0, 3);
+        robotState.fx = clamp(Number(fallback.fx ?? robotState.x) || 0, 0, size - 1);
+        robotState.fz = clamp(Number(fallback.fz ?? robotState.z) || 0, 0, size - 1);
+        robotState.heading = Number.isFinite(Number(fallback.heading)) ? Number(fallback.heading) : dirToHeading(robotState.dir);
+        robotState.lateralOffset = 0;
+        robotState.lateralVelocity = 0;
+        robotState.motorLeft = 0;
+        robotState.motorRight = 0;
+        robotState.actualLeft = 0;
+        robotState.actualRight = 0;
+        updateRobotMesh();
+    }
+
+    function rememberInitialRobotPose() {
+        initialRobotPose = captureRobotPose();
+        manualRobotPose = null;
+    }
+
+    function rememberManualRobotPose() {
+        manualRobotPose = captureRobotPose();
+    }
+
+    function resetRobotPose() {
+        stopSim({ silent: true });
+        isPlacingRobot = false;
+        isRotatingRobot = false;
+        setRotationGizmoActive(false);
+        restoreRobotPose(manualRobotPose || initialRobotPose);
+        resetVariableRuntimeValues();
+        document.getElementById('status').textContent = manualRobotPose
+            ? 'Estado: Robot reseteado a la posición definida manualmente'
+            : 'Estado: Robot reseteado a la posición inicial';
     }
 
     function tagMazeCellEntity(entity, x, z) {
@@ -1631,6 +1926,7 @@ function getDefaultValueForVariableType(type) {
         robotState.lateralOffset = 0; robotState.lateralVelocity = 0;
         robotState.motorLeft = 0; robotState.motorRight = 0; robotState.actualLeft = 0; robotState.actualRight = 0;
         updateRobotMesh();
+        rememberInitialRobotPose();
 
         document.getElementById('goal').setAttribute('position', `${size - 1 + offset} 0 ${size - 1 + offset}`);
         updateSensorHud();
@@ -2279,6 +2575,7 @@ function getDefaultValueForVariableType(type) {
         robotState.lateralOffset = 0;
         robotState.lateralVelocity = 0;
         updateRobotMesh();
+        rememberManualRobotPose();
         document.getElementById('status').textContent = "Estado: Robot reposicionado";
         return true;
     }
@@ -2293,6 +2590,7 @@ function getDefaultValueForVariableType(type) {
         robotState.heading = heading;
         robotState.dir = headingToDir(heading);
         updateRobotMesh();
+        rememberManualRobotPose();
     }
 
     function getRobotCenterWorld() {
@@ -2616,6 +2914,7 @@ function getDefaultValueForVariableType(type) {
         document.getElementById('hud-right').textContent = formatDistanceForHud(right);
         document.getElementById('hud-delta').textContent = `${delta > 0 ? '+' : ''}${formatDistanceForHud(delta, true)}`;
         updateMotorHud();
+        scheduleLiveVariablesHudUpdate();
     }
 
     function formatDistanceForHud(distanceCm, signed = false) {
@@ -2734,6 +3033,7 @@ function getDefaultValueForVariableType(type) {
             document.getElementById('status').textContent = "🏁 ¡META ALCANZADA!";
             running = false;
             stopMotors();
+            syncRunButton();
         }
     }
 
@@ -2747,7 +3047,10 @@ function getDefaultValueForVariableType(type) {
     }
 
     async function runCode() {
-        if(running) return;
+        if(running) {
+            stopSim();
+            return;
+        }
         if(mazeEditMode) setMazeEditMode(false, { silent: true });
         if(rotationGizmoActive) {
             isRotatingRobot = false;
@@ -2755,6 +3058,7 @@ function getDefaultValueForVariableType(type) {
         }
         resetVariableRuntimeValues();
         running = true;
+        syncRunButton();
         document.getElementById('status').textContent = "Estado: Ejecutando...";
         const code = Blockly.JavaScript.workspaceToCode(workspace);
         console.log("Generated code:", code);
@@ -2765,52 +3069,23 @@ function getDefaultValueForVariableType(type) {
         } catch (e) {
             console.error(e);
             document.getElementById('status').textContent = "Error: " + e.message;
+        } finally {
             running = false;
             stopMotors();
+            syncRunButton();
         }
     }
 
-    function stopSim() {
+    function stopSim(options = {}) {
         running = false;
         stopMotors();
-        document.getElementById('status').textContent = "Estado: Detenido";
+        syncRunButton();
+        if(!options.silent) document.getElementById('status').textContent = "Estado: Pausado";
     }
 
     function getDefaultProgramXml(mode = currentMode) {
         if(mode === 'advanced') {
-            return `
-            <xml xmlns="https://developers.google.com/blockly/xml">
-                <block type="procedures_defnoreturn" x="20" y="20">
-                    <field name="NAME">centrar_robot</field>
-                    <statement name="STACK">
-                        <block type="controls_if">
-                            <mutation else="1"></mutation>
-                            <value name="IF0">
-                                <block type="logic_operation">
-                                    <field name="OP">AND</field>
-                                    <value name="A"><block type="logic_compare"><field name="OP">LT</field><value name="A"><block type="ultrasonic_left"></block></value><value name="B"><block type="math_number"><field name="NUM">7</field></block></value></block></value>
-                                    <value name="B"><block type="logic_compare"><field name="OP">LT</field><value name="A"><block type="ultrasonic_right"></block></value><value name="B"><block type="math_number"><field name="NUM">7</field></block></value></block></value>
-                                </block>
-                            </value>
-                            <statement name="DO0">
-                                <block type="controls_if">
-                                    <mutation elseif="1" else="1"></mutation>
-                                    <value name="IF0"><block type="logic_compare"><field name="OP">GT</field><value name="A"><block type="ultrasonic_left"></block></value><value name="B"><block type="math_arithmetic"><field name="OP">ADD</field><value name="A"><block type="ultrasonic_right"></block></value><value name="B"><block type="math_number"><field name="NUM">0.5</field></block></value></block></value></block></value>
-                                    <statement name="DO0"><block type="set_motor"><field name="SIDE">left</field><value name="SPEED"><block type="math_number"><field name="NUM">125</field></block></value><next><block type="set_motor"><field name="SIDE">right</field><value name="SPEED"><block type="math_number"><field name="NUM">175</field></block></value></block></next></block></statement>
-                                    <value name="IF1"><block type="logic_compare"><field name="OP">GT</field><value name="A"><block type="ultrasonic_right"></block></value><value name="B"><block type="math_arithmetic"><field name="OP">ADD</field><value name="A"><block type="ultrasonic_left"></block></value><value name="B"><block type="math_number"><field name="NUM">0.5</field></block></value></block></value></block></value>
-                                    <statement name="DO1"><block type="set_motor"><field name="SIDE">left</field><value name="SPEED"><block type="math_number"><field name="NUM">175</field></block></value><next><block type="set_motor"><field name="SIDE">right</field><value name="SPEED"><block type="math_number"><field name="NUM">125</field></block></value></block></next></block></statement>
-                                    <statement name="ELSE"><block type="set_motor"><field name="SIDE">left</field><value name="SPEED"><block type="math_number"><field name="NUM">170</field></block></value><next><block type="set_motor"><field name="SIDE">right</field><value name="SPEED"><block type="math_number"><field name="NUM">170</field></block></value></block></next></block></statement>
-                                </block>
-                            </statement>
-                            <statement name="ELSE"><block type="set_motor"><field name="SIDE">left</field><value name="SPEED"><block type="math_number"><field name="NUM">170</field></block></value><next><block type="set_motor"><field name="SIDE">right</field><value name="SPEED"><block type="math_number"><field name="NUM">170</field></block></value></block></next></block></statement>
-                        </block>
-                    </statement>
-                </block>
-                <block type="procedures_defnoreturn" x="20" y="360"><field name="NAME">girar_derecha_90</field><statement name="STACK"><block type="set_motor"><field name="SIDE">left</field><value name="SPEED"><block type="math_number"><field name="NUM">180</field></block></value><next><block type="set_motor"><field name="SIDE">right</field><value name="SPEED"><block type="math_number"><field name="NUM">-180</field></block></value><next><block type="wait_ms"><value name="MS"><block type="math_number"><field name="NUM">440</field></block></value><next><block type="stop_motors"></block></next></block></next></block></next></block></statement></block>
-                <block type="procedures_defnoreturn" x="20" y="560"><field name="NAME">girar_izquierda_90</field><statement name="STACK"><block type="set_motor"><field name="SIDE">left</field><value name="SPEED"><block type="math_number"><field name="NUM">-180</field></block></value><next><block type="set_motor"><field name="SIDE">right</field><value name="SPEED"><block type="math_number"><field name="NUM">180</field></block></value><next><block type="wait_ms"><value name="MS"><block type="math_number"><field name="NUM">440</field></block></value><next><block type="stop_motors"></block></next></block></next></block></next></block></statement></block>
-                <block type="arduino_program" x="560" y="20"><statement name="SETUP"></statement><statement name="LOOP"><block type="controls_if"><mutation elseif="2" else="1"></mutation><value name="IF0"><block type="logic_compare"><field name="OP">GT</field><value name="A"><block type="ultrasonic_right"></block></value><value name="B"><block type="math_number"><field name="NUM">7</field></block></value></block></value><statement name="DO0"><block type="procedures_callnoreturn"><mutation name="girar_derecha_90"></mutation><next><block type="wait_ms"><value name="MS"><block type="math_number"><field name="NUM">80</field></block></value></block></next></block></statement><value name="IF1"><block type="logic_compare"><field name="OP">GT</field><value name="A"><block type="ultrasonic_front"></block></value><value name="B"><block type="math_number"><field name="NUM">3.5</field></block></value></block></value><statement name="DO1"><block type="procedures_callnoreturn"><mutation name="centrar_robot"></mutation><next><block type="wait_ms"><value name="MS"><block type="math_number"><field name="NUM">120</field></block></value></block></next></block></statement><value name="IF2"><block type="logic_compare"><field name="OP">GT</field><value name="A"><block type="ultrasonic_left"></block></value><value name="B"><block type="math_number"><field name="NUM">7</field></block></value></block></value><statement name="DO2"><block type="procedures_callnoreturn"><mutation name="girar_izquierda_90"></mutation><next><block type="wait_ms"><value name="MS"><block type="math_number"><field name="NUM">80</field></block></value></block></next></block></statement><statement name="ELSE"><block type="procedures_callnoreturn"><mutation name="girar_izquierda_90"></mutation><next><block type="wait_ms"><value name="MS"><block type="math_number"><field name="NUM">80</field></block></value></block></next></block></statement></block></statement></block>
-            </xml>
-            `;
+            return "<xml xmlns=\"https://developers.google.com/blockly/xml\">\n  <variables>\n    <variable type=\"Decimal\" id=\"1?ZINvUVOq(*M)LCSM+b\">diferencia</variable>\n  </variables>\n  <block type=\"procedures_defnoreturn\" id=\"AWOSmlssN:-X?do?x;1V\" x=\"-56\" y=\"-240\">\n    <field name=\"NAME\">centrar_robot</field>\n    <comment pinned=\"false\" h=\"80\" w=\"160\">Describe this function...</comment>\n    <statement name=\"STACK\">\n      <block type=\"controls_if\" id=\"-Y|YxmE2_u%UeE#!0!:Q\">\n        <mutation else=\"1\"></mutation>\n        <value name=\"IF0\">\n          <block type=\"logic_compare\" id=\"s1Lee[dg%YXA-qZ)K+gx\">\n            <field name=\"OP\">GT</field>\n            <value name=\"A\">\n              <block type=\"variables_get\" id=\"9-$K4)s4[$ffcKtXSS9f\">\n                <field name=\"VAR\" id=\"1?ZINvUVOq(*M)LCSM+b\" variabletype=\"Decimal\">diferencia</field>\n              </block>\n            </value>\n            <value name=\"B\">\n              <block type=\"math_number\" id=\"GB/)Nr`G8V:Y=o,8ooG1\">\n                <field name=\"NUM\">0.1</field>\n              </block>\n            </value>\n          </block>\n        </value>\n        <statement name=\"DO0\">\n          <block type=\"controls_if\" id=\"FA{$eB4q;[.r3kh,[2xj\">\n            <mutation else=\"1\"></mutation>\n            <value name=\"IF0\">\n              <block type=\"logic_compare\" id=\"k``Ruw*~qhu0E/J^(jb[\">\n                <field name=\"OP\">GT</field>\n                <value name=\"A\">\n                  <block type=\"ultrasonic_left\" id=\"8wIWSU~:vZ9f{dqi+?Sy\"></block>\n                </value>\n                <value name=\"B\">\n                  <block type=\"ultrasonic_right\" id=\"cQBIh:SKsa*(AF;RZav=\"></block>\n                </value>\n              </block>\n            </value>\n            <statement name=\"DO0\">\n              <block type=\"set_motor\" id=\"iUJiO;nf?YX]o9z+0mk/\">\n                <field name=\"SIDE\">left</field>\n                <value name=\"SPEED\">\n                  <block type=\"math_number\" id=\"?QNPuuPWM*R2EU3Gd{M+\">\n                    <field name=\"NUM\">125</field>\n                  </block>\n                </value>\n                <next>\n                  <block type=\"set_motor\" id=\"lPNWpB}{7PGWGhWQ1$/?\">\n                    <field name=\"SIDE\">right</field>\n                    <value name=\"SPEED\">\n                      <block type=\"math_number\" id=\"l~;AQ9|hKD=.~vz*vulZ\">\n                        <field name=\"NUM\">175</field>\n                      </block>\n                    </value>\n                  </block>\n                </next>\n              </block>\n            </statement>\n            <statement name=\"ELSE\">\n              <block type=\"set_motor\" id=\"+!gP!!fx@nZ7Lqs`vsK-\">\n                <field name=\"SIDE\">left</field>\n                <value name=\"SPEED\">\n                  <block type=\"math_number\" id=\"WY*:SokeM,jL_h:|+]*V\">\n                    <field name=\"NUM\">175</field>\n                  </block>\n                </value>\n                <next>\n                  <block type=\"set_motor\" id=\"8BTgTG4fhX!4h/G}zR*q\">\n                    <field name=\"SIDE\">right</field>\n                    <value name=\"SPEED\">\n                      <block type=\"math_number\" id=\"Lu?Nv5qQ#eBDMOFWdg/p\">\n                        <field name=\"NUM\">125</field>\n                      </block>\n                    </value>\n                  </block>\n                </next>\n              </block>\n            </statement>\n          </block>\n        </statement>\n        <statement name=\"ELSE\">\n          <block type=\"set_motor\" id=\"@@XV6?|ii!E9#`##XXe+\">\n            <field name=\"SIDE\">left</field>\n            <value name=\"SPEED\">\n              <block type=\"math_number\" id=\"f?84ICl}:tXNN]]_qamR\">\n                <field name=\"NUM\">255</field>\n              </block>\n            </value>\n            <next>\n              <block type=\"set_motor\" id=\"tsAo,4YS[7QjB)__:p~S\">\n                <field name=\"SIDE\">right</field>\n                <value name=\"SPEED\">\n                  <block type=\"math_number\" id=\"=U+b`S|eZg!SG(118W2w\">\n                    <field name=\"NUM\">255</field>\n                  </block>\n                </value>\n              </block>\n            </next>\n          </block>\n        </statement>\n      </block>\n    </statement>\n  </block>\n  <block type=\"arduino_program\" id=\"^=jz,V^OB$=U(p/]yg|W\" deletable=\"false\" x=\"672\" y=\"-217\">\n    <statement name=\"LOOP\">\n      <block type=\"variables_set\" id=\"dxBAJJB0#wOp~]y:B!-F\">\n        <field name=\"VAR\" id=\"1?ZINvUVOq(*M)LCSM+b\" variabletype=\"Decimal\">diferencia</field>\n        <value name=\"VALUE\">\n          <block type=\"math_single\" id=\"@8mD;_lkq4O*l3^46_io\">\n            <field name=\"OP\">ABS</field>\n            <value name=\"NUM\">\n              <block type=\"math_arithmetic\" id=\"0JOf/iM7C?7!OD0#-MM4\">\n                <field name=\"OP\">MINUS</field>\n                <value name=\"A\">\n                  <block type=\"ultrasonic_left\" id=\"kO1fWAF78^z|zJ#JM_0E\"></block>\n                </value>\n                <value name=\"B\">\n                  <block type=\"ultrasonic_right\" id=\"S9iRZ]k|O;gifHI`PsR{\"></block>\n                </value>\n              </block>\n            </value>\n          </block>\n        </value>\n        <next>\n          <block type=\"procedures_callnoreturn\" id=\"]A(ik8MR-0i1CG@q)F3R\">\n            <mutation name=\"centrar_robot\"></mutation>\n          </block>\n        </next>\n      </block>\n    </statement>\n  </block>\n  <block type=\"procedures_defnoreturn\" id=\"U)%/0GPRmz,b}~tYYc2+\" x=\"671\" y=\"58\">\n    <field name=\"NAME\">girar_derecha_90</field>\n    <comment pinned=\"false\" h=\"80\" w=\"160\">Describe this function...</comment>\n    <statement name=\"STACK\">\n      <block type=\"set_motor\" id=\"EeRPz,[oUHX6S8{qSuib\">\n        <field name=\"SIDE\">left</field>\n        <value name=\"SPEED\">\n          <block type=\"math_number\" id=\"#rM/O$Xi`)l@O,gOXFi*\">\n            <field name=\"NUM\">180</field>\n          </block>\n        </value>\n        <next>\n          <block type=\"set_motor\" id=\"Ej]%]l6~2b;=bQ7lmCAl\">\n            <field name=\"SIDE\">right</field>\n            <value name=\"SPEED\">\n              <block type=\"math_number\" id=\"s#ioW2uY!Iq9E6Qd%kI*\">\n                <field name=\"NUM\">-180</field>\n              </block>\n            </value>\n            <next>\n              <block type=\"wait_ms\" id=\"kPDlQ]SN?tQco.[;vnvT\">\n                <value name=\"MS\">\n                  <block type=\"math_number\" id=\"zs0O-ewtz6*++_kFK2}n\">\n                    <field name=\"NUM\">440</field>\n                  </block>\n                </value>\n                <next>\n                  <block type=\"stop_motors\" id=\",fVY/DUnkv}l]0@!tr/.\"></block>\n                </next>\n              </block>\n            </next>\n          </block>\n        </next>\n      </block>\n    </statement>\n  </block>\n  <block type=\"procedures_defnoreturn\" id=\"idDGe[R!y9$fT2.SW}DJ\" x=\"674\" y=\"352\">\n    <field name=\"NAME\">girar_izquierda_90</field>\n    <comment pinned=\"false\" h=\"80\" w=\"160\">Describe this function...</comment>\n    <statement name=\"STACK\">\n      <block type=\"set_motor\" id=\"3{7B99Vtm)iNA5+1n:;B\">\n        <field name=\"SIDE\">left</field>\n        <value name=\"SPEED\">\n          <block type=\"math_number\" id=\"[-zt(X6gWmpMK:N})YT3\">\n            <field name=\"NUM\">-180</field>\n          </block>\n        </value>\n        <next>\n          <block type=\"set_motor\" id=\"UJf$)vk.gSEolj?Z(y?w\">\n            <field name=\"SIDE\">right</field>\n            <value name=\"SPEED\">\n              <block type=\"math_number\" id=\"SZ^iAs;Nhk$:3Y/Z`Vka\">\n                <field name=\"NUM\">180</field>\n              </block>\n            </value>\n            <next>\n              <block type=\"wait_ms\" id=\"6TfJ50;weZ9AW7k*jR6x\">\n                <value name=\"MS\">\n                  <block type=\"math_number\" id=\"c2|c1-|RPIOH8O9,W[!~\">\n                    <field name=\"NUM\">440</field>\n                  </block>\n                </value>\n                <next>\n                  <block type=\"stop_motors\" id=\"cMT!D9-m?S8jJpRhoB=P\"></block>\n                </next>\n              </block>\n            </next>\n          </block>\n        </next>\n      </block>\n    </statement>\n  </block>\n</xml>";
         }
 
         return `
@@ -2827,8 +3102,13 @@ function getDefaultValueForVariableType(type) {
 
     function loadDefaultProgram(mode = currentMode) {
         if(!window.workspace) return;
+        workspaceLoading = true;
         window.workspace.clear();
         Blockly.Xml.domToWorkspace(Blockly.utils.xml.textToDom(getDefaultProgramXml(mode)), window.workspace);
+        requestAnimationFrame(() => {
+            workspaceLoading = false;
+            syncVariablesHudFromWorkspace(true);
+        });
     }
 
     function getWorkspaceXmlText() {
@@ -2846,12 +3126,28 @@ function getDefaultValueForVariableType(type) {
 
     function loadWorkspaceXmlText(xmlText) {
         const xmlDom = Blockly.utils.xml.textToDom(normalizeEducationalXmlText(xmlText));
+        workspaceLoading = true;
         window.workspace.clear();
         Blockly.Xml.domToWorkspace(xmlDom, window.workspace);
+        requestAnimationFrame(() => {
+            workspaceLoading = false;
+            syncVariablesHudFromWorkspace(true);
+        });
     }
 
     function getBlocksStorageKey(mode = currentMode) {
         return `${BLOCKS_STORAGE_PREFIX}${mode}`;
+    }
+
+    let autosaveBlocksTimer = null;
+    let workspaceLoading = false;
+    function scheduleBlocksAutosave() {
+        if(!window.workspace || workspaceLoading) return;
+        clearTimeout(autosaveBlocksTimer);
+        autosaveBlocksTimer = setTimeout(() => {
+            if(workspaceLoading) return;
+            saveBlocks(currentMode, { silent: true });
+        }, 350);
     }
 
     function isStaleAdvancedDefaultXml(xmlText) {
@@ -2860,18 +3156,27 @@ function getDefaultValueForVariableType(type) {
             xmlText.includes('girar_derecha_90') &&
             xmlText.includes('girar_izquierda_90');
         if(!looksLikeBundledAdvanced) return false;
-        return xmlText.includes('<field name="NUM">60</field>') ||
+
+        const isCurrentAdvancedExample = xmlText.includes('diferencia') &&
+            xmlText.includes('variables_set') &&
+            xmlText.includes('math_single');
+        if(isCurrentAdvancedExample) return false;
+
+        return xmlText.includes('<mutation elseif="2" else="1"') ||
+            xmlText.includes('<field name="NUM">60</field>') ||
             xmlText.includes('<field name="NUM">160</field></block></value></block></value><statement name="DO1"') ||
             xmlText.includes('<field name="NUM">16</field></block></value></block></value><statement name="DO1"') ||
             xmlText.includes('<field name="NUM">8</field>') ||
             xmlText.includes('<value name="IF0"><block type="logic_compare"><field name="OP">GT</field><value name="A"><block type="ultrasonic_front"></block></value>');
     }
 
-    function saveBlocks(mode = currentMode) {
+    function saveBlocks(mode = currentMode, options = {}) {
         if(!window.workspace) return false;
         const xmlText = getWorkspaceXmlText();
         localStorage.setItem(getBlocksStorageKey(mode), xmlText);
-        document.getElementById('status').textContent = `Estado: Bloques guardados (${mode === 'advanced' ? 'Avanzado' : 'Básico'})`;
+        if(!options.silent) {
+            document.getElementById('status').textContent = `Estado: Bloques guardados (${mode === 'advanced' ? 'Avanzado' : 'B?sico'})`;
+        }
         return true;
     }
 
@@ -2963,9 +3268,16 @@ function applyJJBlocklySelectionStyle() {
             }
         `;
 
+        let enforceQueued = false;
+        let isEnforcing = false;
         const enforce = () => {
+            if(isEnforcing) return;
+            isEnforcing = true;
             const root = document.getElementById('blocklyDiv');
-            if(!root) return;
+            if(!root) {
+                isEnforcing = false;
+                return;
+            }
 
             // 1) limpiar estilos previos para que no queden bloques viejos pintados
             root.querySelectorAll('g.blocklyDraggable > path.blocklyPath').forEach(path => {
@@ -3011,18 +3323,32 @@ function applyJJBlocklySelectionStyle() {
                 path.style.stroke = active.stroke;
                 path.style.fill = active.stroke;
             });
+
+            isEnforcing = false;
+        };
+
+        const queueEnforce = () => {
+            if(enforceQueued) return;
+            enforceQueued = true;
+            requestAnimationFrame(() => {
+                enforceQueued = false;
+                enforce();
+            });
         };
 
         enforce();
 
         const root = document.getElementById('blocklyDiv');
         if(root && !root.__jjSelectionObserver) {
-            const observer = new MutationObserver(() => requestAnimationFrame(enforce));
+            const observer = new MutationObserver(() => {
+                if(isEnforcing) return;
+                queueEnforce();
+            });
             observer.observe(root, {
                 subtree: true,
                 childList: true,
                 attributes: true,
-                attributeFilter: ['class', 'style', 'stroke', 'fill']
+                attributeFilter: ['class']
             });
             root.__jjSelectionObserver = observer;
         }
@@ -3063,6 +3389,7 @@ function initBlockly() {
         syncVariablesHudFromWorkspace();
         workspace.addChangeListener(event => {
             if(window.__jjBlocklyEnforceSelection) window.__jjBlocklyEnforceSelection();
+            if(workspaceLoading) return;
             if(event && event.isUiEvent) return;
             const variableEvents = new Set([
                 Blockly.Events.VAR_CREATE,
@@ -3077,6 +3404,10 @@ function initBlockly() {
             if(!event || variableEvents.has(event.type)) {
                 requestAnimationFrame(() => syncVariablesHudFromWorkspace());
             }
+            scheduleLiveVariablesHudUpdate();
+            if(event && event.type !== Blockly.Events.FINISHED_LOADING && event.type !== 'finished_loading') {
+                scheduleBlocksAutosave();
+            }
         });
         window.addEventListener('resize', () => Blockly.svgResize(workspace));
         requestAnimationFrame(() => {
@@ -3089,6 +3420,7 @@ function initBlockly() {
         setMobilePanel(window.innerWidth > 900 ? 'both' : 'sim');
         syncModeButtons();
         syncViewButtons();
+        syncRunButton();
         window.addEventListener('keydown', event => {
             if(event.key === 'Escape') closeSideMenu();
         });
